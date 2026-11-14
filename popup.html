@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #131722;
+      color: #d1d4dc;
+      padding: 12px;
+      margin: 0;
+      box-sizing: border-box;
+    }
+    h3 {
+      margin: 0 0 4px 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .badge-mode {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: #2962ff;
+      border-radius: 3px;
+      color: #fff;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .meta {
+      font-size: 11px;
+      color: #787b86;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #2a2e39;
+      padding-bottom: 6px;
+      line-height: 1.4;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 8px;
+      margin-bottom: 4px;
+      background: #1e222d;
+      border-radius: 4px;
+      font-size: 12px;
+      transition: background 0.15s ease;
+    }
+    .row:hover {
+      background: #262b3d;
+    }
+    .res { border-left: 3px solid #ef5350; }
+    .sup { border-left: 3px solid #26a69a; }
+    .lbl { font-weight: 700; width: 28px; }
+    .res .lbl { color: #ef5350; }
+    .sup .lbl { color: #26a69a; }
+    .strike { font-weight: 700; color: #ffffff; margin-right: 6px; }
+    .oi-val { font-size: 11px; color: #2962ff; font-weight: 600; }
+    .breakdown { font-size: 10px; color: #787b86; margin-left: 4px; }
+
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #787b86;
+      margin: 10px 0 6px 0;
+      letter-spacing: 0.5px;
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .setting-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .setting-item label {
+      font-size: 10px;
+      color: #787b86;
+      margin-bottom: 3px;
+    }
+    select {
+      background: #1e222d;
+      color: #d1d4dc;
+      border: 1px solid #2a2e39;
+      padding: 5px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      outline: none;
+      cursor: pointer;
+    }
+    select:focus {
+      border-color: #2962ff;
+    }
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #2a2e39;
+      font-size: 12px;
+    }
+    .btn-group {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    button {
+      flex: 1;
+      padding: 7px;
+      background: #2962ff;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    button:hover { background: #1e53e5; }
+    button.secondary {
+      background: #2a2e39;
+      color: #d1d4dc;
+    }
+    button.secondary:hover { background: #363a45; color: #fff; }
+    .pine-box {
+      margin-top: 6px;
+      font-family: monospace;
+      font-size: 10px;
+      background: #181b24;
+      padding: 4px 6px;
+      border-radius: 3px;
+      color: #9db2d5;
+      word-break: break-all;
+      display: none;
+      border: 1px solid #2a2e39;
+    }
+  </style>
+</head>
+<body>
+  <h3>
+    <span id="title">NSE OI S&R Overlay</span>
+    <span class="badge-mode" id="modeBadge">TOTAL OI</span>
+  </h3>
+  <div class="meta" id="meta">Open any NSE F&O chart on TradingView</div>
+
+  <div id="rows"></div>
+
+  <div class="section-title">Analysis Strategy (oi_fetch)</div>
+  <div class="settings-grid">
+    <div class="setting-item">
+      <label for="rankModeSelect">Ranking Mode</label>
+      <select id="rankModeSelect">
+        <option value="total">Total (Call+Put)</option>
+        <option value="max">Max (Call vs Put)</option>
+        <option value="call_put">Call / Put Classic</option>
+        <option value="call">Call OI Only</option>
+        <option value="put">Put OI Only</option>
+      </select>
+    </div>
+    <div class="setting-item">
+      <label for="dataBasisSelect">Data Basis</label>
+      <select id="dataBasisSelect">
+        <option value="total">Total OI</option>
+        <option value="change">OI Change</option>
+      </select>
+    </div>
+  </div>
+  <div class="settings-grid">
+    <div class="setting-item" style="grid-column: span 2;">
+      <label for="strikesRangeSelect">Strike Depth Around ATM</label>
+      <select id="strikesRangeSelect">
+        <option value="5">ATM ± 5 Strikes (Default)</option>
+        <option value="7">ATM ± 7 Strikes (Wide)</option>
+        <option value="10">ATM ± 10 Strikes (Deep)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="controls">
+    <span>Show Lines on Chart</span>
+    <input type="checkbox" id="toggleVis" checked>
+  </div>
+
+  <div class="btn-group">
+    <button id="copyPineBtn" class="secondary" title="Copy compact Pine Script string format">Copy Pine Line</button>
+    <button id="refreshBtn">Refresh Chart OI</button>
+  </div>
+  <div id="pineBox" class="pine-box"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
