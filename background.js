@@ -3,12 +3,23 @@
 
 const INDICES = new Set(['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'NIFTYNXT50']);
 
+const INDEX_NAME_MAP = {
+  'NIFTY': 'NIFTY 50',
+  'BANKNIFTY': 'NIFTY BANK',
+  'FINNIFTY': 'NIFTY FINANCIAL SERVICES',
+  'MIDCPNIFTY': 'NIFTY MIDCAP SELECT',
+  'NIFTYNXT50': 'NIFTY NEXT 50'
+};
+
 const DEFAULT_SETTINGS = {
-  rankMode: 'total',       // 'total' (Call+Put), 'max', 'call_put', 'call', 'put'
-  dataBasis: 'total',      // 'total' (Total OI) or 'change' (OI Change)
-  strikesEachSide: 5,      // STRIKES_EACH_SIDE = 5 in oi_fetch.py
-  topN: 3,                 // TOP_N = 3 in oi_fetch.py
-  unit: 100000.0           // UNIT = 100000.0 (Lakhs)
+  rankMode: 'total',           // 'total' (Call+Put), 'max', 'call_put', 'call', 'put'
+  dataBasis: 'total',          // 'total' (Total OI) or 'change' (OI Change)
+  strikesEachSide: 5,          // STRIKES_EACH_SIDE = 5 in oi_fetch.py
+  topN: 3,                     // TOP_N = 3 in oi_fetch.py
+  unit: 100000.0,              // UNIT = 100000.0 (Lakhs)
+  refPriceSource: 'prev_open', // 'prev_open', 'today_open', 'custom', 'spot'
+  customRefPrice: null,        // e.g. 1336
+  excludeAtm: true             // Exclude the rounded ATM strike candle
 };
 
 // In-memory cache for raw option chain data to make settings changes instant
@@ -46,7 +57,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const cached = rawChainCache.get(current.symbol);
       if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
         try {
-          const recalculated = calculateOiLevels(current.symbol, cached.records, cached.expiry, settings);
+          const recalculated = calculateOiLevels(current.symbol, cached.records, cached.expiry, settings, cached.priceInfo);
           chrome.storage.local.set({ activeOiData: recalculated });
           sendResponse({ success: true, data: recalculated });
           return;
@@ -101,13 +112,16 @@ function scoreOf(c, p, mode, isAbove) {
   return c + p;
 }
 
-// Core level picker implementing oi_fetch.py's ATM window and pick_levels logic
-function calculateOiLevels(symbol, records, expiry, settings) {
+// Core level picker implementing ATM window, opening price reference, and ATM strike exclusion
+function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
   const {
     rankMode = 'total',
     dataBasis = 'total',
     strikesEachSide = 5,
-    topN = 3
+    topN = 3,
+    refPriceSource = 'prev_open',
+    customRefPrice = null,
+    excludeAtm = true
   } = settings;
 
   const rows = records.data || [];
@@ -119,6 +133,42 @@ function calculateOiLevels(symbol, records, expiry, settings) {
     Number(rows.find((r) => r.CE?.underlyingValue)?.CE?.underlyingValue) ||
     Number(rows.find((r) => r.PE?.underlyingValue)?.PE?.underlyingValue) ||
     0;
+
+  // Determine reference price based on settings
+  let refPrice = spot;
+  let effectiveSource = refPriceSource;
+
+  if (refPriceSource === 'custom' && customRefPrice !== null && !isNaN(Number(customRefPrice)) && Number(customRefPrice) > 0) {
+    refPrice = Number(customRefPrice);
+    effectiveSource = 'custom';
+  } else if (refPriceSource === 'prev_open') {
+    if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen))) {
+      refPrice = Number(priceInfo.prevOpen);
+      effectiveSource = 'prev_open';
+    } else if (priceInfo?.prevClose && !isNaN(Number(priceInfo.prevClose))) {
+      refPrice = Number(priceInfo.prevClose);
+      effectiveSource = 'prev_close_fallback';
+    } else if (priceInfo?.todayOpen && !isNaN(Number(priceInfo.todayOpen))) {
+      refPrice = Number(priceInfo.todayOpen);
+      effectiveSource = 'today_open_fallback';
+    } else {
+      effectiveSource = 'spot_fallback';
+    }
+  } else if (refPriceSource === 'today_open') {
+    if (priceInfo?.todayOpen && !isNaN(Number(priceInfo.todayOpen))) {
+      refPrice = Number(priceInfo.todayOpen);
+      effectiveSource = 'today_open';
+    } else if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen))) {
+      refPrice = Number(priceInfo.prevOpen);
+      effectiveSource = 'prev_open_fallback';
+    } else {
+      effectiveSource = 'spot_fallback';
+    }
+  } else {
+    // 'spot'
+    refPrice = spot;
+    effectiveSource = 'spot';
+  }
 
   // Build strike map for target expiry
   const strikeMap = new Map();
@@ -143,18 +193,19 @@ function calculateOiLevels(symbol, records, expiry, settings) {
   const allStrikes = Array.from(strikeMap.keys()).sort((a, b) => a - b);
   if (!allStrikes.length) throw new Error(`No option strikes found for ${symbol} expiry ${expiry}`);
 
-  // Find ATM strike (closest to spot) - matching oi_fetch.py
+  // Find ATM strike (closest to reference price)
   let atmIndex = 0;
   let minDiff = Infinity;
   for (let i = 0; i < allStrikes.length; i++) {
-    const diff = Math.abs(allStrikes[i] - spot);
+    const diff = Math.abs(allStrikes[i] - refPrice);
     if (diff < minDiff) {
       minDiff = diff;
       atmIndex = i;
     }
   }
+  const atmStrike = allStrikes[atmIndex];
 
-  // Window: ATM +/- strikesEachSide (STRIKES_EACH_SIDE = 5 in oi_fetch.py)
+  // Window: ATM +/- strikesEachSide
   const startIdx = Math.max(0, atmIndex - strikesEachSide);
   const endIdx = Math.min(allStrikes.length, atmIndex + strikesEachSide + 1);
   const chosenStrikes = allStrikes.slice(startIdx, endIdx);
@@ -164,7 +215,7 @@ function calculateOiLevels(symbol, records, expiry, settings) {
     const item = strikeMap.get(s);
     const c = dataBasis === 'change' ? item.ceChgOi : item.ceOi;
     const p = dataBasis === 'change' ? item.peChgOi : item.peOi;
-    const isAbove = s >= spot;
+    const isAbove = s >= refPrice;
     const score = scoreOf(c, p, rankMode, isAbove);
 
     return {
@@ -186,9 +237,20 @@ function calculateOiLevels(symbol, records, expiry, settings) {
     };
   });
 
-  // Partition into Above (Resistance) and Below (Support) - matching pick_levels() in oi_fetch.py
-  const aboveCandidates = scored.filter((x) => x.strike >= spot);
-  const belowCandidates = scored.filter((x) => x.strike < spot);
+  // Partition into Above (Resistance) and Below (Support)
+  // When excludeAtm is true, strictly exclude the rounded ATM strike:
+  // Above candidates: strike > atmStrike
+  // Below candidates: strike < atmStrike
+  let aboveCandidates;
+  let belowCandidates;
+
+  if (excludeAtm !== false) {
+    aboveCandidates = scored.filter((x) => x.strike > atmStrike);
+    belowCandidates = scored.filter((x) => x.strike < atmStrike);
+  } else {
+    aboveCandidates = scored.filter((x) => x.strike >= refPrice);
+    belowCandidates = scored.filter((x) => x.strike < refPrice);
+  }
 
   // Pick top N ranked by score descending (highest first)
   const topAbove = [...aboveCandidates]
@@ -200,9 +262,9 @@ function calculateOiLevels(symbol, records, expiry, settings) {
     .slice(0, topN);
 
   // For chart visualization & standard S&R ordering:
-  // Sort resistance ascending (R1 nearest above spot, R2 above R1, R3 highest)
+  // Sort resistance ascending (R1 nearest above ATM, R2 above R1, R3 highest)
   const resLevels = [...topAbove].sort((a, b) => a.strike - b.strike);
-  // Sort support descending (S1 nearest below spot, S2 below S1, S3 lowest)
+  // Sort support descending (S1 nearest below ATM, S2 below S1, S3 lowest)
   const supLevels = [...topBelow].sort((a, b) => b.strike - a.strike);
 
   const resObjects = resLevels.map((item, idx) => ({
@@ -225,7 +287,7 @@ function calculateOiLevels(symbol, records, expiry, settings) {
     color: idx === 0 ? '#26a69a' : '#66bb6a'
   }));
 
-  // Pine Script compact lines format from oi_fetch.py:
+  // Pine Script compact lines format:
   // SYMBOL | above1,above2,above3 | below1,below2,below3
   const pineAbove = topAbove.map((x) => x.strike).join(',');
   const pineBelow = topBelow.map((x) => x.strike).join(',');
@@ -234,11 +296,18 @@ function calculateOiLevels(symbol, records, expiry, settings) {
   return {
     symbol,
     spot,
+    refPrice,
+    refPriceSource: effectiveSource,
+    prevOpen: priceInfo?.prevOpen || null,
+    todayOpen: priceInfo?.todayOpen || null,
+    prevClose: priceInfo?.prevClose || null,
+    atmStrike,
+    excludedAtm: (excludeAtm !== false) ? atmStrike : null,
+    excludeAtm: excludeAtm !== false,
     expiry,
     mode: rankMode,
     basis: dataBasis,
     strikesEachSide,
-    atmStrike: allStrikes[atmIndex],
     pineLine,
     r1: resObjects[0]?.price || null,
     r2: resObjects[1]?.price || null,
@@ -293,7 +362,7 @@ async function queryDomain(domain, symbol) {
         `/api/option-chain-v3?type=${type}&symbol=${sym}&expiry=${encodeURIComponent(expiry)}`
       );
       if (chain?.records || chain?.payload || chain?.data) {
-        return { chain, expiry };
+        return { chain, expiry, domain };
       }
     }
   } catch (e) {
@@ -310,7 +379,57 @@ async function queryDomain(domain, symbol) {
   const expiries = records.expiryDates || [];
   if (!expiries.length) throw new Error('No F&O expiry found');
 
-  return { chain, expiry: expiries[0] };
+  return { chain, expiry: expiries[0], domain };
+}
+
+async function getSymbolPriceInfo(domain, symbol) {
+  const isIndex = INDICES.has(symbol);
+  const info = { todayOpen: null, prevOpen: null, prevClose: null };
+
+  try {
+    if (isIndex) {
+      const idxName = INDEX_NAME_MAP[symbol] || symbol;
+      try {
+        const all = await fetchJson(domain, '/api/allIndices');
+        const match = (all?.data || []).find((d) =>
+          d.index?.toUpperCase() === idxName.toUpperCase() ||
+          d.indexSymbol?.toUpperCase() === idxName.toUpperCase() ||
+          d.index?.toUpperCase().includes(symbol)
+        );
+        if (match) {
+          info.todayOpen = Number(match.open) || null;
+          info.prevClose = Number(match.previousClose) || null;
+        }
+      } catch (e) {}
+
+      try {
+        const hist = await fetchJson(domain, `/api/historical/indicesHistory?indexType=${encodeURIComponent(idxName)}`);
+        const recs = hist?.data?.indexCloseOnlineRecords || hist?.data || [];
+        if (recs.length >= 2) {
+          info.prevOpen = Number(recs[1].OPEN_INDEX_VAL || recs[1].open) || null;
+        }
+      } catch (e) {}
+    } else {
+      const sym = encodeURIComponent(symbol);
+      try {
+        const quote = await fetchJson(domain, `/api/quote-equity?symbol=${sym}`);
+        info.todayOpen = Number(quote?.priceInfo?.open) || null;
+        info.prevClose = Number(quote?.priceInfo?.previousClose) || null;
+      } catch (e) {}
+
+      try {
+        const hist = await fetchJson(domain, `/api/historical/cm/equity?symbol=${sym}&series=[%22EQ%22]`);
+        const recs = hist?.data || [];
+        if (recs.length >= 2) {
+          info.prevOpen = Number(recs[1].CH_OPENING_PRICE || recs[1].open) || null;
+        }
+      } catch (e) {}
+    }
+  } catch (err) {
+    // Graceful fallback if price endpoints fail
+  }
+
+  return info;
 }
 
 async function getNSEOptionLevels(symbol, settings) {
@@ -320,7 +439,10 @@ async function getNSEOptionLevels(symbol, settings) {
   for (const domain of ['www.nseindia.com', 'www.nseindia.in']) {
     try {
       result = await queryDomain(domain, symbol);
-      if (result?.chain) break;
+      if (result?.chain) {
+        result.domain = domain;
+        break;
+      }
     } catch (e) {
       lastErr = e;
     }
@@ -332,12 +454,19 @@ async function getNSEOptionLevels(symbol, settings) {
 
   const records = result.chain.records || result.chain.payload || result.chain;
 
-  // Cache raw response
+  // Fetch price info (prevOpen, todayOpen, prevClose)
+  let priceInfo = {};
+  try {
+    priceInfo = await getSymbolPriceInfo(result.domain || 'www.nseindia.com', symbol);
+  } catch (e) {}
+
+  // Cache raw response with price info
   rawChainCache.set(symbol, {
     records,
     expiry: result.expiry,
+    priceInfo,
     timestamp: Date.now()
   });
 
-  return calculateOiLevels(symbol, records, result.expiry, settings);
+  return calculateOiLevels(symbol, records, result.expiry, settings, priceInfo);
 }

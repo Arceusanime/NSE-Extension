@@ -9,7 +9,10 @@
       oiData = e.data.payload;
       const basisLabel = oiData.basis === 'change' ? 'OI Chg' : 'Total OI';
       const modeLabel = (oiData.mode || 'total').toUpperCase();
-      statusText = `${oiData.symbol} (${oiData.expiry}) • Spot:${oiData.spot} • R1:${oiData.r1} | S1:${oiData.s1} • [${modeLabel} • ${basisLabel}]`;
+      const refSrc = (oiData.refPriceSource || 'ref').replace(/_/g, ' ').toUpperCase();
+      const refText = oiData.refPrice ? `${refSrc}:${oiData.refPrice}` : `Spot:${oiData.spot}`;
+      const exclText = oiData.excludedAtm ? ` [ATM ${oiData.excludedAtm} Excl]` : '';
+      statusText = `${oiData.symbol} (${oiData.expiry}) • ${refText}${exclText} • R1:${oiData.r1} | S1:${oiData.s1} • [${modeLabel} • ${basisLabel}]`;
     } else if (e.data?.type === 'OI_STATUS') {
       oiData = null;
       statusText = e.data.text;
@@ -91,7 +94,7 @@
     return ` (${sign}${abs} OI)`;
   }
 
-  function drawLevel(y, price, label, oiCount, color, w, h) {
+  function drawLevel(y, price, label, oiCount, color, w, h, isAtm = false) {
     if (typeof y !== 'number' || isNaN(y)) return;
 
     // Off-screen ABOVE current zoom
@@ -118,18 +121,18 @@
       return;
     }
 
-    // Horizontal dashed line directly across the chart
+    // Horizontal line directly across the chart
     ctx.beginPath();
-    ctx.setLineDash([6, 4]);
+    ctx.setLineDash(isAtm ? [3, 4] : [6, 4]);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = isAtm ? 1.2 : 1.6;
     ctx.moveTo(0, y);
     ctx.lineTo(w, y);
     ctx.stroke();
 
     // Left badge with Strike & OI count
     ctx.setLineDash([]);
-    const oiLabel = typeof oiCount === 'string' ? ` (${oiCount})` : formatLevelOI(oiCount);
+    const oiLabel = isAtm ? ' [EXCL]' : (typeof oiCount === 'string' ? ` (${oiCount})` : formatLevelOI(oiCount));
     const leftText = `${label} • ${price}${oiLabel}`;
     ctx.font = 'bold 11px system-ui, sans-serif';
     const tw = ctx.measureText(leftText).width;
@@ -193,11 +196,21 @@
       { price: oiData.s3, oi: oiData.topPuts?.[2]?.scoreFormatted  || oiData.topPuts?.[2]?.oi,  label: 'S3', color: '#66bb6a' }
     ];
 
+    if (oiData.excludedAtm) {
+      levels.push({
+        price: oiData.excludedAtm,
+        oi: '',
+        label: 'ATM REF',
+        color: '#787b86',
+        isAtm: true
+      });
+    }
+
     for (const lvl of levels) {
       const price = Number(lvl.price);
       if (price && !isNaN(price)) {
         const y = priceToY(price);
-        drawLevel(y, price, lvl.label, lvl.oi, lvl.color, overlay.width, overlay.height);
+        drawLevel(y, price, lvl.label, lvl.oi, lvl.color, overlay.width, overlay.height, !!lvl.isAtm);
       }
     }
   }

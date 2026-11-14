@@ -418,11 +418,18 @@ def score_of(c, p, mode):
     return c + p                                       # total
 
 
-def pick_levels(strikes, calls, puts, open_price, top_n, mode):
-    """Top N strikes at/above the open and top N below it, ranked by score (highest first)."""
+def pick_levels(strikes, calls, puts, open_price, top_n, mode, exclude_atm=True):
+    """Top N strikes above the open and top N below it, ranked by score (highest first).
+    When exclude_atm is True, rounds open_price to the nearest strike (ATM) and excludes that strike completely.
+    """
     scored = [(s, score_of(c, p, mode)) for s, c, p in zip(strikes, calls, puts)]
-    above = sorted([x for x in scored if x[0] >= open_price], key=lambda x: -x[1])[:top_n]
-    below = sorted([x for x in scored if x[0] < open_price], key=lambda x: -x[1])[:top_n]
+    if exclude_atm and strikes:
+        atm_strike = min(strikes, key=lambda s: abs(s - open_price))
+        above = sorted([x for x in scored if x[0] > atm_strike], key=lambda x: -x[1])[:top_n]
+        below = sorted([x for x in scored if x[0] < atm_strike], key=lambda x: -x[1])[:top_n]
+    else:
+        above = sorted([x for x in scored if x[0] >= open_price], key=lambda x: -x[1])[:top_n]
+        below = sorted([x for x in scored if x[0] < open_price], key=lambda x: -x[1])[:top_n]
     return [s for s, _ in above], [s for s, _ in below]
 
 

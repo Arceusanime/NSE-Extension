@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NSE OI Point-Gap Scanner & S&R Dashboard</title>
+  <style>
+    :root {
+      --bg-dark: #0e1118;
+      --bg-card: #161b26;
+      --bg-card-hover: #1c2230;
+      --bg-subtle: #212838;
+      --border: #2a3245;
+      --text-main: #e1e4ea;
+      --text-muted: #8b94a5;
+      --accent: #2962ff;
+      --accent-hover: #1e53e5;
+      --res-color: #ef5350;
+      --res-subtle: rgba(239, 83, 80, 0.15);
+      --sup-color: #26a69a;
+      --sup-subtle: rgba(38, 166, 154, 0.15);
+      --atm-color: #90a4ae;
+      --atm-subtle: rgba(144, 164, 174, 0.15);
+      --gap-high: #ff9800;
+      --gap-badge: #2962ff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      padding: 24px;
+      line-height: 1.45;
+      min-width: 980px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-title h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.3px;
+    }
+
+    .pill-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid transparent;
+      padding: 7px 14px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      background: var(--accent-hover);
+    }
+
+    button.secondary {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    button.secondary:hover {
+      background: var(--bg-subtle);
+      border-color: #3b455e;
+    }
+
+    /* KPI Summary Cards */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-val {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Filter & Control Bar */
+    .toolbar {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .toolbar-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    input[type="text"], input[type="number"], select {
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+    }
+
+    .search-box {
+      width: 220px;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 4px;
+      background: var(--bg-dark);
+      border-radius: 2px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .progress-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+
+    /* Main Table */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    th {
+      background: #12151e;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    th:hover {
+      color: #ffffff;
+    }
+
+    th.active-sort {
+      color: var(--accent);
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    tr:hover td {
+      background: var(--bg-card-hover);
+    }
+
+    .sym-col {
+      font-weight: 700;
+      font-size: 13px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sym-tag {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .sym-tag.index {
+      background: rgba(41, 98, 255, 0.2);
+      color: #64b5f6;
+    }
+
+    /* Point Gap Pill */
+    .gap-pill {
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 152, 0, 0.15);
+      color: #ffb74d;
+      border: 1px solid rgba(255, 152, 0, 0.3);
+    }
+
+    .gap-pct {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-left: 2px;
+    }
+
+    /* S&R strike badges */
+    .res-badge {
+      color: var(--res-color);
+      font-weight: 600;
+    }
+
+    .sup-badge {
+      color: var(--sup-color);
+      font-weight: 600;
+    }
+
+    .atm-badge {
+      color: var(--atm-color);
+      font-weight: 600;
+      font-style: italic;
+    }
+
+    .oi-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-left: 3px;
+    }
+
+    /* Chart Link */
+    .tv-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 6px;
+      border-radius: 3px;
+      background: rgba(41, 98, 255, 0.1);
+      transition: background 0.15s ease;
+    }
+
+    .tv-link:hover {
+      background: rgba(41, 98, 255, 0.25);
+    }
+
+    /* Watchlist Modal */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      width: 500px;
+      max-width: 90vw;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 140px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      outline: none;
+      resize: vertical;
+      margin-bottom: 14px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-title">
+      <h1>NSE OI Point-Gap Scanner & S&R Dashboard</h1>
+      <span class="pill-badge" id="statusPill">Ready</span>
+    </div>
+    <div class="header-actions">
+      <button id="openWatchlistBtn" class="secondary">⚙ Manage Watchlist</button>
+      <button id="exportCsvBtn" class="secondary">📥 Export CSV</button>
+      <button id="scanAllBtn">⚡ Scan All Watchlist</button>
+    </div>
+  </header>
+
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <span class="kpi-label">Tracked Symbols</span>
+      <span class="kpi-val" id="statTracked">0</span>
+      <span class="kpi-sub" id="statScannedTime">Not scanned yet</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Avg Point Gap (R1 - S1)</span>
+      <span class="kpi-val" id="statAvgGap">-- pts</span>
+      <span class="kpi-sub">Across all scanned symbols</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Widest Gap Symbol</span>
+      <span class="kpi-val" id="statMaxGap" style="color: #ffb74d;">--</span>
+      <span class="kpi-sub" id="statMaxGapSub">High channel breadth</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Narrowest Gap Symbol</span>
+      <span class="kpi-val" id="statMinGap" style="color: #64b5f6;">--</span>
+      <span class="kpi-sub" id="statMinGapSub">Tight compression setup</span>
+    </div>
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="progress-bar-container" id="progressContainer">
+    <div class="progress-bar-fill" id="progressBar"></div>
+  </div>
+
+  <!-- Filter & Strategy Bar -->
+  <div class="toolbar">
+    <div class="toolbar-row">
+      <div class="filter-group">
+        <label for="searchInput">Search:</label>
+        <input type="text" id="searchInput" class="search-box" placeholder="Filter symbol (e.g. NIFTY, RELIANCE)">
+      </div>
+
+      <div class="filter-group">
+        <label for="categoryFilter">Category:</label>
+        <select id="categoryFilter">
+          <option value="all">All Symbols</option>
+          <option value="indices">Indices Only</option>
+          <option value="stocks">Equities Only</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="sortBySelect">Sort By:</label>
+        <select id="sortBySelect">
+          <option value="gap_desc">Highest Point Gap (R1 - S1)</option>
+          <option value="gap_asc">Lowest Point Gap (R1 - S1)</option>
+          <option value="pct_desc">Highest % Spread</option>
+          <option value="upside_desc">Highest Upside Room (R1 - Ref)</option>
+          <option value="downside_desc">Highest Downside Room (Ref - S1)</option>
+          <option value="full_gap_desc">Full Spread (R3 - S3)</option>
+          <option value="symbol_asc">Symbol (A - Z)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="gapThreshold">Min Gap:</label>
+        <select id="gapThreshold">
+          <option value="0">All Gaps (≥ 0 pts)</option>
+          <option value="20">≥ 20 pts</option>
+          <option value="50">≥ 50 pts</option>
+          <option value="100">≥ 100 pts</option>
+          <option value="200">≥ 200 pts</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Strategy Settings (Syncs with extension logic) -->
+    <div class="toolbar-row" style="border-top: 1px solid var(--border); padding-top: 10px;">
+      <div class="filter-group">
+        <label for="refPriceSourceSelect">Reference Anchor:</label>
+        <select id="refPriceSourceSelect">
+          <option value="prev_open">Previous Day Open (Default)</option>
+          <option value="today_open">Today's Open</option>
+          <option value="spot">Live Spot Price</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="rankModeSelect">Ranking Mode:</label>
+        <select id="rankModeSelect">
+          <option value="total">Total (Call + Put)</option>
+          <option value="max">Max (Call vs Put)</option>
+          <option value="call_put">Call/Put Classic</option>
+          <option value="call">Call OI Only</option>
+          <option value="put">Put OI Only</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="dataBasisSelect">Data Basis:</label>
+        <select id="dataBasisSelect">
+          <option value="total">Total OI</option>
+          <option value="change">OI Change</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>
+          <input type="checkbox" id="excludeAtmCheck" checked style="vertical-align: middle; margin-right: 4px;">
+          Exclude ATM Strike (Opening Candle)
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table View -->
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th data-sort="symbol">Symbol</th>
+          <th data-sort="gap">Point Gap (R1 - S1)</th>
+          <th data-sort="ref">Ref Price</th>
+          <th data-sort="spot">Spot Price</th>
+          <th>ATM Strike (Excl)</th>
+          <th>Resistance (R1 | R2 | R3)</th>
+          <th>Support (S1 | S2 | S3)</th>
+          <th>Room (Up / Down)</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="stocksTableBody">
+        <tr>
+          <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 40px;">
+            Click <strong>"⚡ Scan All Watchlist"</strong> to fetch live NSE Option Chain levels and rank by Point Gap.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Watchlist Modal -->
+  <div class="modal-backdrop" id="watchlistModal">
+    <div class="modal-box">
+      <div class="modal-title">Manage Watchlist Symbols</div>
+      <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+        Enter symbols separated by commas or newlines (F&O stocks & indices supported by NSE):
+      </p>
+      <textarea id="watchlistTextarea" placeholder="NIFTY, BANKNIFTY, FINNIFTY, RELIANCE, HDFCBANK..."></textarea>
+      <div class="modal-actions">
+        <button id="resetWatchlistBtn" class="secondary">Reset to Default</button>
+        <button id="cancelWatchlistBtn" class="secondary">Cancel</button>
+        <button id="saveWatchlistBtn">Save Watchlist</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

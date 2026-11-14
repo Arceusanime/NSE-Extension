@@ -84,7 +84,7 @@
       color: #787b86;
       margin-bottom: 3px;
     }
-    select {
+    select, input[type="number"], input[type="text"] {
       background: #1e222d;
       color: #d1d4dc;
       border: 1px solid #2a2e39;
@@ -92,11 +92,17 @@
       border-radius: 4px;
       font-size: 11px;
       outline: none;
-      cursor: pointer;
+      box-sizing: border-box;
     }
-    select:focus {
+    select:focus, input:focus {
       border-color: #2962ff;
     }
+    .atm-excl {
+      border-left: 3px solid #787b86;
+      background: #191c26;
+      opacity: 0.85;
+    }
+    .atm-excl .lbl { color: #90a4ae; }
     .controls {
       display: flex;
       justify-content: space-between;
@@ -152,6 +158,25 @@
 
   <div id="rows"></div>
 
+  <div class="section-title">Reference Price & Anchor</div>
+  <div class="settings-grid">
+    <div class="setting-item" style="grid-column: span 2;">
+      <label for="refPriceSelect">Reference Price Anchor</label>
+      <select id="refPriceSelect">
+        <option value="prev_open">Previous Day Open (Default)</option>
+        <option value="today_open">Today's Open</option>
+        <option value="custom">Custom Price (e.g. 1336)</option>
+        <option value="spot">Live Spot Price</option>
+      </select>
+    </div>
+  </div>
+  <div id="customPriceRow" class="settings-grid" style="display: none;">
+    <div class="setting-item" style="grid-column: span 2;">
+      <label for="customPriceInput">Custom Open/Ref Price</label>
+      <input type="number" step="any" id="customPriceInput" placeholder="Enter reference price (e.g. 1336)">
+    </div>
+  </div>
+
   <div class="section-title">Analysis Strategy (oi_fetch)</div>
   <div class="settings-grid">
     <div class="setting-item">
@@ -184,6 +209,11 @@
   </div>
 
   <div class="controls">
+    <span>Exclude ATM Strike from S&R</span>
+    <input type="checkbox" id="excludeAtmCheck" checked>
+  </div>
+
+  <div class="controls">
     <span>Show Lines on Chart</span>
     <input type="checkbox" id="toggleVis" checked>
   </div>
@@ -191,6 +221,11 @@
   <div class="btn-group">
     <button id="copyPineBtn" class="secondary" title="Copy compact Pine Script string format">Copy Pine Line</button>
     <button id="refreshBtn">Refresh Chart OI</button>
+  </div>
+  <div style="margin-top: 8px;">
+    <button id="openDashboardBtn" style="width: 100%; padding: 8px; font-weight: 700; background: #2962ff; display: flex; align-items: center; justify-content: center; gap: 6px;">
+      📊 Open Full Scanner Dashboard ↗
+    </button>
   </div>
   <div id="pineBox" class="pine-box"></div>
 
