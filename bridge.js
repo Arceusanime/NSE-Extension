@@ -14,6 +14,9 @@ chrome.storage.onChanged.addListener((changes) => {
     overlayVisible = changes.overlayVisible.newValue;
     window.postMessage({ type: 'OI_VISIBILITY', visible: overlayVisible }, '*');
   }
+  if (changes.oiSettings) {
+    window.postMessage({ type: 'OI_SETTINGS', settings: changes.oiSettings.newValue }, '*');
+  }
   if (changes.manualRefresh || changes.oiSettings) {
     currentSymbol = null;
     watchChartTicker();

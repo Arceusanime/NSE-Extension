@@ -14,12 +14,14 @@ const INDEX_NAME_MAP = {
 const DEFAULT_SETTINGS = {
   rankMode: 'total',           // 'total' (Call+Put), 'max', 'call_put', 'call', 'put'
   dataBasis: 'total',          // 'total' (Total OI) or 'change' (OI Change)
-  strikesEachSide: 5,          // STRIKES_EACH_SIDE = 5 in oi_fetch.py
-  topN: 3,                     // TOP_N = 3 in oi_fetch.py
-  unit: 100000.0,              // UNIT = 100000.0 (Lakhs)
+  strikesEachSide: 5,          // STRIKES_EACH_SIDE = 5
+  topN: 3,                     // TOP_N = 3
   refPriceSource: 'prev_open', // 'prev_open', 'today_open', 'custom', 'spot'
   customRefPrice: null,        // e.g. 1336
-  excludeAtm: true             // Exclude the rounded ATM strike candle
+  excludeAtm: true,            // Exclude the rounded ATM strike candle
+  lineStyle: 'solid',          // 'solid' | 'dashed'
+  labelPosition: 'right',      // 'right' | 'left'
+  lineScope: 'today'           // 'today' | 'full'
 };
 
 // In-memory cache for raw option chain data to make settings changes instant
@@ -130,7 +132,10 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     topN = 3,
     refPriceSource = 'prev_open',
     customRefPrice = null,
-    excludeAtm = true
+    excludeAtm = true,
+    lineStyle = 'solid',
+    labelPosition = 'right',
+    lineScope = 'today'
   } = settings;
 
   const rows = records.data || [];
@@ -246,9 +251,7 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
       peChgOi: item.peChgOi,
       ceLtp: item.ceLtp,
       peLtp: item.peLtp,
-      scoreFormatted: formatOI(score),
-      cFormatted: formatOI(c),
-      pFormatted: formatOI(p)
+      scoreFormatted: formatOI(score)
     };
   });
 
@@ -329,6 +332,9 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     expiry,
     mode: rankMode,
     basis: dataBasis,
+    lineStyle,
+    labelPosition,
+    lineScope,
     strikesEachSide,
     pineLine,
     r1: resObjects[0]?.price || null,
@@ -339,8 +345,7 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     s3: supObjects[2]?.price || null,
     topCalls: resObjects,
     topPuts: supObjects,
-    levels: [...resObjects, ...supObjects],
-    allChosen: scored
+    levels: [...resObjects, ...supObjects]
   };
 }
 

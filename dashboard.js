@@ -260,6 +260,9 @@ async function scanAllWatchlist() {
       excludeAtm: document.getElementById('excludeAtmCheck').checked
     };
 
+    // Save active scanner settings to storage so background service worker recalculates consistently
+    chrome.storage.local.set({ oiSettings: activeSettings });
+
     scannedData = [];
     const total = list.length;
 
@@ -436,10 +439,6 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   if (themeCheckbox) {
     themeCheckbox.checked = (theme === 'light');
-  }
-  const themeBtn = document.getElementById('themeToggleBtn');
-  if (themeBtn) {
-    themeBtn.textContent = theme === 'dark' ? 'Light' : 'Dark';
   }
 }
 

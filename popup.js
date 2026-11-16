@@ -1,13 +1,16 @@
 // popup.js - Controls for NSE OI S&R Extension
 
 const DEFAULT_SETTINGS = {
-  rankMode: 'total',
+  rankMode: 'call_put',
   dataBasis: 'total',
   strikesEachSide: 5,
   topN: 3,
   refPriceSource: 'prev_open',
   customRefPrice: null,
-  excludeAtm: true
+  excludeAtm: true,
+  lineStyle: 'solid',
+  labelPosition: 'right',
+  lineScope: 'today'
 };
 
 let currentPineLine = '';
@@ -106,6 +109,26 @@ function applyTheme(theme) {
   }
 }
 
+function updateEyeIcon(visible) {
+  const btn = document.getElementById('toggleLinesBtn');
+  const open = document.getElementById('eyeOpenIcon');
+  const closed = document.getElementById('eyeClosedIcon');
+  if (!btn || !open || !closed) return;
+  if (visible) {
+    btn.classList.add('active');
+    btn.classList.remove('muted');
+    btn.title = 'Lines visible on chart (Click to hide)';
+    open.style.display = 'block';
+    closed.style.display = 'none';
+  } else {
+    btn.classList.remove('active');
+    btn.classList.add('muted');
+    btn.title = 'Lines hidden on chart (Click to show)';
+    open.style.display = 'none';
+    closed.style.display = 'block';
+  }
+}
+
 // Load initial state
 chrome.storage.local.get(['activeOiData', 'overlayVisible', 'oiSettings', 'themeMode', 'accentColor'], (res) => {
   // Theme & Accent setup
@@ -117,12 +140,15 @@ chrome.storage.local.get(['activeOiData', 'overlayVisible', 'oiSettings', 'theme
   if (res.activeOiData) {
     render(res.activeOiData);
   }
-  document.getElementById('toggleVis').checked = res.overlayVisible !== false;
+  updateEyeIcon(res.overlayVisible !== false);
 
   const settings = Object.assign({}, DEFAULT_SETTINGS, res.oiSettings || {});
   document.getElementById('rankModeSelect').value = settings.rankMode || 'call_put';
   document.getElementById('dataBasisSelect').value = settings.dataBasis || 'total';
   document.getElementById('strikesRangeSelect').value = String(settings.strikesEachSide || 5);
+  document.getElementById('lineStyleSelect').value = settings.lineStyle || 'solid';
+  document.getElementById('labelPosSelect').value = settings.labelPosition || 'right';
+  document.getElementById('lineScopeSelect').value = settings.lineScope || 'today';
 
   const refSrc = settings.refPriceSource || 'prev_open';
   document.getElementById('refPriceSelect').value = refSrc;
@@ -155,6 +181,9 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.activeOiData) {
     render(changes.activeOiData.newValue);
   }
+  if (changes.overlayVisible) {
+    updateEyeIcon(changes.overlayVisible.newValue !== false);
+  }
 });
 
 // Save and apply settings change
@@ -169,7 +198,10 @@ function updateSettings() {
     topN: 3,
     refPriceSource: refSrc,
     customRefPrice: (!isNaN(customVal) && customVal > 0) ? customVal : null,
-    excludeAtm: document.getElementById('excludeAtmCheck').checked
+    excludeAtm: document.getElementById('excludeAtmCheck').checked,
+    lineStyle: document.getElementById('lineStyleSelect').value,
+    labelPosition: document.getElementById('labelPosSelect').value,
+    lineScope: document.getElementById('lineScopeSelect').value
   };
 
   chrome.storage.local.set({ oiSettings: newSettings }, () => {
@@ -185,6 +217,9 @@ document.getElementById('rankModeSelect').addEventListener('change', updateSetti
 document.getElementById('dataBasisSelect').addEventListener('change', updateSettings);
 document.getElementById('strikesRangeSelect').addEventListener('change', updateSettings);
 document.getElementById('excludeAtmCheck').addEventListener('change', updateSettings);
+document.getElementById('lineStyleSelect').addEventListener('change', updateSettings);
+document.getElementById('labelPosSelect').addEventListener('change', updateSettings);
+document.getElementById('lineScopeSelect').addEventListener('change', updateSettings);
 
 document.getElementById('refPriceSelect').addEventListener('change', (e) => {
   const isCustom = e.target.value === 'custom';
@@ -206,8 +241,12 @@ document.getElementById('customPriceInput').addEventListener('keydown', (e) => {
   }
 });
 
-document.getElementById('toggleVis').addEventListener('change', (e) => {
-  chrome.storage.local.set({ overlayVisible: e.target.checked });
+document.getElementById('toggleLinesBtn')?.addEventListener('click', () => {
+  chrome.storage.local.get(['overlayVisible'], (res) => {
+    const next = res.overlayVisible === false ? true : false;
+    chrome.storage.local.set({ overlayVisible: next });
+    updateEyeIcon(next);
+  });
 });
 
 document.getElementById('refreshBtn').addEventListener('click', () => {
