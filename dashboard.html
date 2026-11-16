@@ -1,28 +1,107 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-accent="mono">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NSE OI Point-Gap Scanner & S&R Dashboard</title>
+  <title>NSE OI Point Gap Rankings</title>
   <style>
     :root {
-      --bg-dark: #0e1118;
-      --bg-card: #161b26;
-      --bg-card-hover: #1c2230;
-      --bg-subtle: #212838;
-      --border: #2a3245;
-      --text-main: #e1e4ea;
-      --text-muted: #8b94a5;
-      --accent: #2962ff;
-      --accent-hover: #1e53e5;
-      --res-color: #ef5350;
-      --res-subtle: rgba(239, 83, 80, 0.15);
-      --sup-color: #26a69a;
-      --sup-subtle: rgba(38, 166, 154, 0.15);
-      --atm-color: #90a4ae;
-      --atm-subtle: rgba(144, 164, 174, 0.15);
-      --gap-high: #ff9800;
-      --gap-badge: #2962ff;
+      /* Vercel Theme Tokens (via 21st.dev/@serafimcloud/themes/vercel) */
+      /* Dark Mode Default (Iconic Vercel Pitch Black) */
+      --bg-base: #000000;
+      --bg-sidebar: #050507;
+      --bg-card: #0a0a0c;
+      --bg-card-hover: #121215;
+      --bg-input: #08080a;
+      --border: rgba(255, 255, 255, 0.12);
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-hover: rgba(255, 255, 255, 0.24);
+
+      --text-main: #ffffff;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+
+      /* Monochrome Default Accent */
+      --accent: #ffffff;
+      --accent-text: #000000;
+      --accent-bg: rgba(255, 255, 255, 0.08);
+      --accent-border: rgba(255, 255, 255, 0.22);
+      --accent-glow: rgba(255, 255, 255, 0.15);
+
+      --res-color: #f87171;
+      --res-bg: rgba(248, 113, 113, 0.1);
+      --sup-color: #34d399;
+      --sup-bg: rgba(52, 211, 153, 0.1);
+      --atm-color: #94a3b8;
+
+      --radius-lg: 8px;
+      --radius-md: 6px;
+      --radius-sm: 4px;
+      --radius-pill: 9999px;
+
+      --font-stack: -apple-system, BlinkMacSystemFont, 'Geist', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Light Mode (Vercel Clean White Minimalist) */
+    [data-theme="light"] {
+      --bg-base: #fcfcfc;
+      --bg-sidebar: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f4f4f5;
+      --bg-input: #f4f4f5;
+      --border: #e4e4e7;
+      --border-subtle: #f4f4f5;
+      --border-hover: #d4d4d8;
+
+      --text-main: #09090b;
+      --text-secondary: #71717a;
+      --text-muted: #a1a1aa;
+
+      --accent: #09090b;
+      --accent-text: #ffffff;
+      --accent-bg: rgba(0, 0, 0, 0.06);
+      --accent-border: rgba(0, 0, 0, 0.18);
+      --accent-glow: rgba(0, 0, 0, 0.1);
+
+      --res-color: #ef4444;
+      --res-bg: rgba(239, 68, 68, 0.08);
+      --sup-color: #10b981;
+      --sup-bg: rgba(16, 185, 129, 0.08);
+      --atm-color: #64748b;
+    }
+
+    /* Color Palettes */
+    [data-accent="mono"] {
+      /* Pure Vercel Monochrome */
+    }
+    [data-accent="gold"] {
+      --accent: #d97706;
+      --accent-text: #ffffff;
+      --accent-bg: rgba(217, 119, 6, 0.12);
+      --accent-border: rgba(217, 119, 6, 0.3);
+      --accent-glow: rgba(217, 119, 6, 0.2);
+    }
+    [data-accent="blue"] {
+      --accent: #2563eb;
+      --accent-text: #ffffff;
+      --accent-bg: rgba(37, 99, 235, 0.12);
+      --accent-border: rgba(37, 99, 235, 0.3);
+      --accent-glow: rgba(37, 99, 235, 0.2);
+    }
+    [data-accent="emerald"] {
+      --accent: #059669;
+      --accent-text: #ffffff;
+      --accent-bg: rgba(5, 150, 105, 0.12);
+      --accent-border: rgba(5, 150, 105, 0.3);
+      --accent-glow: rgba(5, 150, 105, 0.2);
+    }
+    [data-accent="violet"] {
+      --accent: #7c3aed;
+      --accent-text: #ffffff;
+      --accent-bg: rgba(124, 58, 237, 0.12);
+      --accent-border: rgba(124, 58, 237, 0.3);
+      --accent-glow: rgba(124, 58, 237, 0.2);
     }
 
     * {
@@ -32,537 +111,1516 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg-dark);
+      font-family: var(--font-stack);
+      background-color: var(--bg-base);
       color: var(--text-main);
-      padding: 24px;
+      padding: 0;
+      margin: 0;
       line-height: 1.45;
-      min-width: 980px;
-    }
-
-    /* Header */
-    header {
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      min-height: 100vh;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
     }
 
-    .brand-title {
+    .app-wrapper {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    /* Aceternity UI Inspired Sidebar Component (Pure CSS/JS) */
+    aside.sidebar {
+      width: 240px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+      overflow: visible;
+      z-index: 40;
+      position: relative;
+    }
+
+    /* Collapsed Rail State */
+    aside.sidebar.collapsed {
+      width: 64px;
+    }
+
+    /* Aceternity Signature Hover-Expand Effect when in Rail Mode */
+    aside.sidebar.collapsed:hover {
+      width: 240px;
+      box-shadow: 8px 0 28px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Header & Brand */
+    .sidebar-header {
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      height: 58px;
+      box-sizing: border-box;
+      position: relative;
+      overflow: visible;
+    }
+
+    .sidebar-brand {
       display: flex;
       align-items: center;
       gap: 12px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-decoration: none;
+      cursor: pointer;
+      flex-shrink: 0;
     }
 
-    .brand-title h1 {
-      font-size: 20px;
-      font-weight: 700;
-      color: #ffffff;
-      letter-spacing: -0.3px;
+    .brand-icon-wrap {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: var(--accent-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.2s ease, background 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    .brand-icon-wrap:hover {
+      transform: scale(1.05);
     }
 
-    .pill-badge {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 4px;
+    .brand-meta {
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transform-origin: left;
+    }
+
+    .brand-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-main);
+      letter-spacing: -0.2px;
+      line-height: 1.2;
+    }
+
+    .brand-sub {
+      font-size: 9.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.2px;
+    }
+
+    /* In Collapsed state, hide labels unless hovered */
+    aside.sidebar.collapsed .brand-meta {
+      opacity: 0;
+      transform: translateX(-8px);
+      pointer-events: none;
+    }
+    aside.sidebar.collapsed:hover .brand-meta {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    /* Collapse / Toggle Button - Positioned on the Right */
+    .collapse-btn {
+      position: absolute;
+      right: 14px;
+      top: 16px;
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      cursor: pointer;
+      width: 26px;
+      height: 26px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.22s ease;
+      flex-shrink: 0;
+      z-index: 50;
+    }
+    .collapse-btn:hover {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border-color: var(--border-hover);
+    }
+
+    .collapse-btn svg {
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* When expanded: chevron points left (<) */
+    aside.sidebar:not(.collapsed) .collapse-btn svg {
+      transform: rotate(0deg);
+    }
+
+    /* In collapsed rail mode:
+       Logo stays at left: 18px (perfect 18 + 28 + 18 = 64px centering).
+       The collapse button sits on the right border edge tab (Linear/VS Code style):
+       Zero overlap with the logo! */
+    aside.sidebar.collapsed .collapse-btn {
+      position: absolute;
+      right: -11px;
+      top: 18px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      color: var(--text-secondary);
+      z-index: 60;
+    }
+    aside.sidebar.collapsed .collapse-btn svg {
+      transform: rotate(180deg);
+    }
+    aside.sidebar.collapsed .collapse-btn:hover {
+      background: var(--accent);
+      color: var(--accent-text);
+      border-color: transparent;
+      transform: scale(1.1);
+    }
+
+    /* When hovering over collapsed sidebar to auto-expand to 240px:
+       Smoothly pull the collapse button inside to right: 14px */
+    aside.sidebar.collapsed:hover .collapse-btn {
+      right: 14px;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      border-color: var(--border-subtle);
+      color: var(--text-secondary);
+      box-shadow: none;
+    }
+    aside.sidebar.collapsed:hover .collapse-btn:hover {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border-color: var(--border-hover);
+      transform: scale(1);
+    }
+
+    /* Nav Links Container */
+    .nav-container {
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .nav-group-title {
+      font-size: 9.5px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      background: var(--accent);
-      color: #fff;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      padding: 6px 10px 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: opacity 0.2s ease, transform 0.22s ease;
+    }
+    aside.sidebar.collapsed .nav-group-title {
+      opacity: 0;
+      transform: translateX(-6px);
+      height: 0;
+      padding: 0;
+      margin: 0;
+    }
+    aside.sidebar.collapsed:hover .nav-group-title {
+      opacity: 1;
+      transform: translateX(0);
+      height: auto;
+      padding: 6px 10px 3px;
     }
 
-    .header-actions {
+    .nav-menu {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    /* Aceternity SidebarLink Component Styling */
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      border: 1px solid transparent;
+      position: relative;
+    }
+
+    .nav-link:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-main);
+      transform: translateX(2px);
+    }
+
+    /* Floating active card pill (Aceternity style) */
+    .nav-link.active {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border-color: var(--border);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      font-weight: 500;
+    }
+    .nav-link.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      border-radius: 0 3px 3px 0;
+      background: var(--accent);
+    }
+
+    .nav-icon {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--text-secondary);
+      transition: color 0.15s ease, transform 0.15s ease;
+    }
+    .nav-link:hover .nav-icon,
+    .nav-link.active .nav-icon {
+      color: var(--accent);
+      transform: scale(1.05);
+    }
+
+    .nav-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    aside.sidebar.collapsed .nav-text {
+      opacity: 0;
+      transform: translateX(-6px);
+      pointer-events: none;
+    }
+    aside.sidebar.collapsed:hover .nav-text {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .nav-badge {
+      font-size: 9.5px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-input);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      transition: opacity 0.2s ease;
+    }
+    aside.sidebar.collapsed .nav-badge {
+      display: none;
+    }
+    aside.sidebar.collapsed:hover .nav-badge {
+      display: inline-block;
+    }
+
+    /* Aceternity Profile / Status Footer */
+    .sidebar-footer {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
       gap: 10px;
+      background: var(--bg-sidebar);
+      overflow: hidden;
+      white-space: nowrap;
+      transition: var(--transition-smooth);
     }
 
-    button {
-      background: var(--accent);
-      color: #fff;
-      border: 1px solid transparent;
-      padding: 7px 14px;
-      border-radius: 5px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.15s ease;
-    }
-
-    button:hover {
-      background: var(--accent-hover);
-    }
-
-    button.secondary {
+    .profile-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
       background: var(--bg-card);
       border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-main);
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .profile-pulse-dot {
+      position: absolute;
+      bottom: -1px;
+      right: -1px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--sup-color);
+      border: 1.5px solid var(--bg-sidebar);
+      box-shadow: 0 0 6px var(--sup-color);
+    }
+
+    .profile-meta {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .profile-title {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+
+    .profile-sub {
+      font-size: 9.5px;
+      color: var(--text-muted);
+      line-height: 1.2;
+    }
+
+    aside.sidebar.collapsed .profile-meta {
+      opacity: 0;
+      transform: translateX(-6px);
+      pointer-events: none;
+    }
+    aside.sidebar.collapsed:hover .profile-meta {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+    aside.sidebar.collapsed:not(:hover) .sidebar-footer {
+      justify-content: center;
+      padding: 10px 0;
+    }
+
+    /* Main Container: Focused Purely on Rankings */
+    main.main-content {
+      flex: 1;
+      padding: 16px 20px;
+      overflow-y: auto;
+      max-width: 1600px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Top Controls Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .page-heading {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .page-heading h1 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
       color: var(--text-main);
     }
 
-    button.secondary:hover {
-      background: var(--bg-subtle);
-      border-color: #3b455e;
+    .live-badge {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-muted);
     }
 
-    /* KPI Summary Cards */
-    .kpi-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 14px;
-      margin-bottom: 20px;
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .kpi-card {
+    /* Palette & Theme Switch */
+    .palette-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 6px;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      border-radius: var(--radius-md);
     }
 
-    .kpi-label {
+    .palette-btn {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    .palette-btn:hover {
+      transform: scale(1.2);
+    }
+    .palette-btn.mono { background: #d4d4d8; }
+    .palette-btn.gold { background: #d97706; }
+    .palette-btn.blue { background: #2563eb; }
+    .palette-btn.emerald { background: #059669; }
+    .palette-btn.violet { background: #7c3aed; }
+
+    /* From Uiverse.io by JustCode14 */ 
+    /* Theme Switch */
+    .switch {
       font-size: 11px;
+      position: relative;
+      display: inline-block;
+      width: 4em;
+      height: 2.2em;
+      border-radius: 30px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      flex-shrink: 0;
+      vertical-align: middle;
+      cursor: pointer;
+    }
+
+    /* Hide default HTML checkbox */
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    /* The slider */
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #2a2a2a;
+      transition: 0.4s;
+      border-radius: 30px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 1.2em;
+      width: 1.2em;
+      border-radius: 20px;
+      left: 0.5em;
+      bottom: 0.5em;
+      transition: 0.4s;
+      transition-timing-function: cubic-bezier(0.81, -0.04, 0.38, 1.5);
+      box-shadow: inset 8px -4px 0px 0px #fff;
+    }
+
+    .switch input:checked + .slider {
+      background-color: #00a6ff;
+      border-color: #0088cc;
+    }
+
+    .switch input:checked + .slider:before {
+      transform: translateX(1.8em);
+      box-shadow: inset 15px -4px 0px 15px #ffcf48;
+    }
+
+    .star {
+      background-color: #fff;
+      border-radius: 50%;
+      position: absolute;
+      width: 4px;
+      transition: all 0.4s;
+      height: 4px;
+    }
+
+    .star_1 {
+      left: 2.5em;
+      top: 0.5em;
+    }
+
+    .star_2 {
+      left: 2.2em;
+      top: 1.2em;
+    }
+
+    .star_3 {
+      left: 3em;
+      top: 0.9em;
+    }
+
+    .switch input:checked ~ .slider .star {
+      opacity: 0;
+    }
+
+    .cloud {
+      width: 3.5em;
+      position: absolute;
+      bottom: -1.4em;
+      left: -1.1em;
+      opacity: 0;
+      transition: all 0.4s;
+      pointer-events: none;
+    }
+
+    .switch input:checked ~ .slider .cloud {
+      opacity: 1;
+    }
+
+    /* From Uiverse.io by aboalsim114 */ 
+    /* Custom Checkbox adapted to active color scheme */
+    .container {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+
+    /* Hide the default checkbox */
+    .container input {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      height: 0;
+      width: 0;
+    }
+
+    /* Create a custom checkbox */
+    .checkmark {
+      position: relative;
+      box-shadow: var(--border) 0px 0px 0px 2px;
+      background-color: var(--bg-card);
+      height: 18px;
+      width: 18px;
+      flex-shrink: 0;
+      transition: all 0.2s ease 0s;
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    .container:hover .checkmark {
+      box-shadow: var(--accent) 0px 0px 0px 2px;
+    }
+
+    .container input:checked ~ .checkmark {
+      box-shadow: var(--accent) 0px 0px 0px 2px;
+      background-color: var(--accent);
+      height: 18px;
+      width: 18px;
+    }
+
+    .checkmark:after {
+      content: "";
+      position: absolute;
+      display: none;
+    }
+
+    .container input:checked ~ .checkmark:after {
+      display: block;
+    }
+
+    /* Style the checkmark/indicator */
+    .container .checkmark:after {
+      left: 6px;
+      top: 2px;
+      width: 4px;
+      height: 8px;
+      border: solid var(--accent-text);
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+      transition: all 250ms ease-in-out;
+    }
+
+    button.btn-primary {
+      background: var(--accent);
+      color: var(--accent-text);
+      border: 1px solid transparent;
+      padding: 6px 12px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+    button.btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    button.btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+      border-radius: var(--radius-md);
+      font-size: 11.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+    button.btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-hover);
+    }
+
+    /* Top Point Gap Carousel Ticker (Auto-rotating, Fading Ends, Non-clickable) */
+    .carousel-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .carousel-label {
+      font-size: 10px;
       font-weight: 600;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
-    .kpi-val {
-      font-size: 20px;
-      font-weight: 700;
-      color: #ffffff;
+    .carousel-track-wrapper {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scroll-behavior: smooth;
+      flex: 1;
+      scrollbar-width: none;
+      mask-image: linear-gradient(90deg, transparent 0%, black 32px, black calc(100% - 32px), transparent 100%);
+      -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 32px, black calc(100% - 32px), transparent 100%);
+    }
+    .carousel-track-wrapper::-webkit-scrollbar {
+      display: none;
     }
 
-    .kpi-sub {
+    .carousel-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3.5px 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
       font-size: 11px;
-      color: var(--text-muted);
+      cursor: default;
+      user-select: none;
+      pointer-events: none;
+      flex-shrink: 0;
+      transition: var(--transition-smooth);
     }
 
-    /* Filter & Control Bar */
-    .toolbar {
+    .carousel-sym {
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .carousel-pts {
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-bg);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    /* Filter & Search Console */
+    .console-panel {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 14px 16px;
-      margin-bottom: 18px;
+      border-radius: var(--radius-lg);
+      padding: 10px 14px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-    }
-
-    .toolbar-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .filter-group {
-      display: flex;
-      align-items: center;
       gap: 8px;
+    }
+
+    .console-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       flex-wrap: wrap;
     }
 
-    label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-muted);
+    .console-divider {
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 8px;
     }
 
-    input[type="text"], input[type="number"], select {
-      background: var(--bg-dark);
+    .field-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+    }
+
+    .field-wrap label {
+      color: var(--text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .search-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-icon-svg {
+      position: absolute;
+      left: 8px;
+      color: var(--text-muted);
+      pointer-events: none;
+      width: 13px;
+      height: 13px;
+    }
+
+    .search-input {
+      background: var(--bg-input);
       border: 1px solid var(--border);
       color: var(--text-main);
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 12px;
+      padding: 5px 8px 5px 26px;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 11.5px;
       outline: none;
-      transition: border-color 0.15s ease;
-    }
-
-    input:focus, select:focus {
-      border-color: var(--accent);
-    }
-
-    .search-box {
       width: 220px;
+      transition: var(--transition-smooth);
+    }
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    /* From Uiverse.io by 3bdel3ziz-T */ 
+    .select {
+      width: fit-content;
+      cursor: pointer;
+      position: relative;
+      transition: 300ms;
+      color: var(--text-main);
+      display: inline-flex;
+      align-items: center;
+      background-color: #2a2f3b;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-theme="light"] .select {
+      background-color: #f1f3f7;
+    }
+
+    .select:hover {
+      background-color: #323741;
+      border-color: var(--border-hover);
+    }
+
+    [data-theme="light"] .select:hover {
+      background-color: #e5e8ef;
+    }
+
+    .select:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    .select select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: inherit;
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 5px 28px 5px 9px;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .select select option {
+      background-color: #2a2f3b;
+      color: var(--text-main);
+      padding: 6px 10px;
+      font-size: 11.5px;
+    }
+
+    [data-theme="light"] .select select option {
+      background-color: #ffffff;
+      color: #09090b;
+    }
+
+    .select .arrow {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      margin-top: -5px;
+      height: 10px;
+      width: 11px;
+      transform: rotate(-90deg);
+      fill: var(--text-secondary);
+      pointer-events: none;
+      transition: 300ms ease;
+      z-index: 1;
+    }
+
+    .select:hover .arrow,
+    .select:focus-within .arrow {
+      transform: rotate(0deg);
+      fill: var(--accent);
     }
 
     .progress-bar-container {
       width: 100%;
-      height: 4px;
-      background: var(--bg-dark);
-      border-radius: 2px;
+      height: 3px;
+      background: var(--bg-input);
+      border-radius: var(--radius-pill);
       overflow: hidden;
       display: none;
+      margin-top: 2px;
     }
 
     .progress-bar-fill {
-      width: 0%;
       height: 100%;
+      width: 0%;
       background: var(--accent);
-      transition: width 0.2s ease;
+      transition: width 0.15s ease;
     }
 
-    /* Main Table */
-    .table-container {
+    /* Main Content: Pure Rankings Table Card */
+    .table-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .table-scroll {
+      width: 100%;
       overflow-x: auto;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 12px;
       text-align: left;
+      font-size: 12px;
     }
 
-    th {
-      background: #12151e;
-      color: var(--text-muted);
-      font-size: 11px;
-      font-weight: 700;
+    thead th {
+      padding: 9px 12px;
+      font-size: 10.5px;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      padding: 10px 12px;
+      color: var(--text-muted);
+      background: var(--bg-card);
       border-bottom: 1px solid var(--border);
       white-space: nowrap;
-      user-select: none;
+    }
+
+    thead th[data-sort] {
       cursor: pointer;
     }
-
-    th:hover {
-      color: #ffffff;
+    thead th[data-sort]:hover {
+      color: var(--text-main);
     }
 
-    th.active-sort {
-      color: var(--accent);
+    tbody tr {
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background-color 0.12s ease;
+      min-height: 54px;
+    }
+    tbody tr:hover {
+      background: var(--bg-card-hover);
     }
 
-    td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
+    tbody td {
+      padding: 13px 14px;
+      color: var(--text-main);
       white-space: nowrap;
       vertical-align: middle;
     }
 
-    tr:hover td {
-      background: var(--bg-card-hover);
+    /* Combined Resistance & Support Stack */
+    .level-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .level-line {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+    }
+    .lvl-label {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      line-height: 1.1;
+      width: 14px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .lvl-label.res {
+      background: var(--res-bg);
+      color: var(--res-color);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+    }
+    .lvl-label.sup {
+      background: var(--sup-bg);
+      color: var(--sup-color);
+      border: 1px solid rgba(52, 211, 153, 0.25);
+    }
+    .lvl-sep {
+      color: var(--text-muted);
+      opacity: 0.4;
+      font-size: 10px;
     }
 
     .sym-col {
-      font-weight: 700;
-      font-size: 13px;
-      color: #ffffff;
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
-    .sym-tag {
+    .sym-name {
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .type-badge {
       font-size: 9px;
+      font-weight: 500;
       padding: 1px 4px;
       border-radius: 3px;
-      background: var(--bg-subtle);
+      background: var(--bg-input);
       color: var(--text-muted);
+    }
+    .type-badge.index {
+      background: var(--accent-bg);
+      color: var(--accent);
+    }
+
+    .gap-badge {
       font-weight: 600;
-    }
-
-    .sym-tag.index {
-      background: rgba(41, 98, 255, 0.2);
-      color: #64b5f6;
-    }
-
-    /* Point Gap Pill */
-    .gap-pill {
-      font-weight: 700;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
+      padding: 2.5px 7px;
+      border-radius: var(--radius-sm);
+      font-size: 11.5px;
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      background: rgba(255, 152, 0, 0.15);
-      color: #ffb74d;
-      border: 1px solid rgba(255, 152, 0, 0.3);
+      background: var(--accent-bg);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
     }
 
     .gap-pct {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-left: 2px;
+      font-size: 10.5px;
+      color: var(--text-secondary);
+      font-weight: 400;
     }
 
-    /* S&R strike badges */
-    .res-badge {
-      color: var(--res-color);
-      font-weight: 600;
-    }
+    .res-txt { color: var(--res-color); font-weight: 500; }
+    .sup-txt { color: var(--sup-color); font-weight: 500; }
+    .atm-txt { color: var(--atm-color); font-weight: 500; }
+    .oi-sub { font-size: 10px; color: var(--text-muted); margin-left: 2px; }
 
-    .sup-badge {
-      color: var(--sup-color);
-      font-weight: 600;
-    }
-
-    .atm-badge {
-      color: var(--atm-color);
-      font-weight: 600;
-      font-style: italic;
-    }
-
-    .oi-sub {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-left: 3px;
-    }
-
-    /* Chart Link */
-    .tv-link {
-      color: var(--accent);
+    .chart-btn {
+      color: var(--text-main);
       text-decoration: none;
-      font-weight: 600;
+      font-weight: 500;
       font-size: 11px;
       display: inline-flex;
       align-items: center;
       gap: 3px;
-      padding: 3px 6px;
-      border-radius: 3px;
-      background: rgba(41, 98, 255, 0.1);
-      transition: background 0.15s ease;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      transition: var(--transition-smooth);
     }
-
-    .tv-link:hover {
-      background: rgba(41, 98, 255, 0.25);
+    .chart-btn:hover {
+      border-color: var(--border-hover);
+      color: var(--accent);
     }
 
     /* Watchlist Modal */
     .modal-backdrop {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
       display: none;
       justify-content: center;
       align-items: center;
       z-index: 1000;
     }
 
-    .modal-box {
+    .modal-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
-      width: 500px;
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      width: 460px;
       max-width: 90vw;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
     }
 
     .modal-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-main);
     }
 
     textarea {
       width: 100%;
-      height: 140px;
-      background: var(--bg-dark);
+      height: 120px;
+      background: var(--bg-input);
       border: 1px solid var(--border);
       color: var(--text-main);
-      padding: 10px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 11.5px;
       outline: none;
       resize: vertical;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
+      box-sizing: border-box;
+    }
+    textarea:focus {
+      border-color: var(--accent);
     }
 
-    .modal-actions {
+    .modal-btns {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
+    }
+
+    @media (max-width: 900px) {
+      aside.sidebar {
+        width: 64px;
+      }
+      aside.sidebar:hover {
+        width: 240px;
+      }
+      .brand-meta, .sidebar-footer span, .nav-text, .nav-group-title, .nav-badge {
+        display: none !important;
+      }
+      aside.sidebar:hover .brand-meta,
+      aside.sidebar:hover .sidebar-footer span,
+      aside.sidebar:hover .nav-text,
+      aside.sidebar:hover .nav-group-title,
+      aside.sidebar:hover .nav-badge {
+        display: flex !important;
+      }
+      main.main-content {
+        padding: 12px;
+      }
+      .search-input {
+        width: 100%;
+      }
+      .console-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
   </style>
 </head>
 <body>
 
-  <header>
-    <div class="brand-title">
-      <h1>NSE OI Point-Gap Scanner & S&R Dashboard</h1>
-      <span class="pill-badge" id="statusPill">Ready</span>
-    </div>
-    <div class="header-actions">
-      <button id="openWatchlistBtn" class="secondary">⚙ Manage Watchlist</button>
-      <button id="exportCsvBtn" class="secondary">📥 Export CSV</button>
-      <button id="scanAllBtn">⚡ Scan All Watchlist</button>
-    </div>
-  </header>
-
-  <!-- KPI Row -->
-  <div class="kpi-row">
-    <div class="kpi-card">
-      <span class="kpi-label">Tracked Symbols</span>
-      <span class="kpi-val" id="statTracked">0</span>
-      <span class="kpi-sub" id="statScannedTime">Not scanned yet</span>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">Avg Point Gap (R1 - S1)</span>
-      <span class="kpi-val" id="statAvgGap">-- pts</span>
-      <span class="kpi-sub">Across all scanned symbols</span>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">Widest Gap Symbol</span>
-      <span class="kpi-val" id="statMaxGap" style="color: #ffb74d;">--</span>
-      <span class="kpi-sub" id="statMaxGapSub">High channel breadth</span>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">Narrowest Gap Symbol</span>
-      <span class="kpi-val" id="statMinGap" style="color: #64b5f6;">--</span>
-      <span class="kpi-sub" id="statMinGapSub">Tight compression setup</span>
-    </div>
-  </div>
-
-  <!-- Progress Bar -->
-  <div class="progress-bar-container" id="progressContainer">
-    <div class="progress-bar-fill" id="progressBar"></div>
-  </div>
-
-  <!-- Filter & Strategy Bar -->
-  <div class="toolbar">
-    <div class="toolbar-row">
-      <div class="filter-group">
-        <label for="searchInput">Search:</label>
-        <input type="text" id="searchInput" class="search-box" placeholder="Filter symbol (e.g. NIFTY, RELIANCE)">
+  <div class="app-wrapper">
+    <!-- Relume & Vercel Inspired Collapsible Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <div class="brand-icon-wrap" title="NSE Option Chain Pro">
+            <!-- Vercel Minimal Geometric Mark -->
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="12 3 22 21 2 21"></polygon>
+            </svg>
+          </div>
+          <div class="brand-meta">
+            <span class="brand-name">NSE Scanner</span>
+            <span class="brand-sub">Option Chain S&amp;R</span>
+          </div>
+        </div>
+        <button class="collapse-btn" id="collapseBtn" title="Toggle Sidebar">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
       </div>
 
-      <div class="filter-group">
-        <label for="categoryFilter">Category:</label>
-        <select id="categoryFilter">
-          <option value="all">All Symbols</option>
-          <option value="indices">Indices Only</option>
-          <option value="stocks">Equities Only</option>
-        </select>
+      <div class="nav-container">
+        <!-- Analytics Group -->
+        <div class="nav-group">
+          <div class="nav-group-title">Analytics</div>
+          <ul class="nav-menu">
+            <li>
+              <a class="nav-link active" id="navRankings" title="Rankings Table">
+                <span class="nav-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                  </svg>
+                </span>
+                <span class="nav-text">Rankings</span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-link" id="navWatchlist" title="Manage Watchlist">
+                <span class="nav-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                  </svg>
+                </span>
+                <span class="nav-text">Watchlist</span>
+                <span class="nav-badge" id="trackedSidebarCount">20</span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-link" id="navScan" title="Run Real-time Scan">
+                <span class="nav-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                </span>
+                <span class="nav-text">Run Scanner</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Data & Tools Group -->
+        <div class="nav-group">
+          <div class="nav-group-title">Data &amp; Tools</div>
+          <ul class="nav-menu">
+            <li>
+              <a class="nav-link" id="navExport" title="Export CSV Data">
+                <span class="nav-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                </span>
+                <span class="nav-text">Export CSV</span>
+              </a>
+            </li>
+          </ul>
+        </div>
       </div>
 
-      <div class="filter-group">
-        <label for="sortBySelect">Sort By:</label>
-        <select id="sortBySelect">
-          <option value="gap_desc">Highest Point Gap (R1 - S1)</option>
-          <option value="gap_asc">Lowest Point Gap (R1 - S1)</option>
-          <option value="pct_desc">Highest % Spread</option>
-          <option value="upside_desc">Highest Upside Room (R1 - Ref)</option>
-          <option value="downside_desc">Highest Downside Room (Ref - S1)</option>
-          <option value="full_gap_desc">Full Spread (R3 - S3)</option>
-          <option value="symbol_asc">Symbol (A - Z)</option>
-        </select>
+      <!-- Aceternity Style Profile / Feed Status Footer -->
+      <div class="sidebar-footer">
+        <div class="profile-avatar" title="NSE Live Data Feed">
+          <span>NS</span>
+          <div class="profile-pulse-dot"></div>
+        </div>
+        <div class="profile-meta">
+          <div class="profile-title">NSE Terminal</div>
+          <div class="profile-sub" id="trackedFooterText">20 Symbols Live</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area: Pure Rankings Focus -->
+    <main class="main-content">
+      <!-- Top Action Bar -->
+      <div class="top-bar">
+        <div class="page-heading">
+          <h1>Option Chain Point Gap Rankings</h1>
+          <span class="live-badge" id="lastUpdatedBadge">Ready to scan</span>
+        </div>
+
+        <div class="top-actions">
+          <!-- Palette group -->
+          <div class="palette-group" title="Select Color Accent">
+            <div class="palette-btn mono" data-color="mono" title="Monochrome"></div>
+            <div class="palette-btn gold" data-color="gold" title="Gold"></div>
+            <div class="palette-btn blue" data-color="blue" title="Blue"></div>
+            <div class="palette-btn emerald" data-color="emerald" title="Emerald"></div>
+            <div class="palette-btn violet" data-color="violet" title="Violet"></div>
+          </div>
+
+          <!-- From Uiverse.io by JustCode14 --> 
+          <label class="switch" title="Toggle Light / Dark Mode">
+            <input id="themeToggleCheckbox" type="checkbox" />
+            <span class="slider">
+              <div class="star star_1"></div>
+              <div class="star star_2"></div>
+              <div class="star star_3"></div>
+              <svg viewBox="0 0 16 16" class="cloud_1 cloud">
+                <path
+                  transform="matrix(.77976 0 0 .78395-299.99-418.63)"
+                  fill="#fff"
+                  d="m391.84 540.91c-.421-.329-.949-.524-1.523-.524-1.351 0-2.451 1.084-2.485 2.435-1.395.526-2.388 1.88-2.388 3.466 0 1.874 1.385 3.423 3.182 3.667v.034h12.73v-.006c1.775-.104 3.182-1.584 3.182-3.395 0-1.747-1.309-3.186-2.994-3.379.007-.106.011-.214.011-.322 0-2.707-2.271-4.901-5.072-4.901-2.073 0-3.856 1.202-4.643 2.925"
+                ></path>
+              </svg>
+            </span>
+          </label>
+
+          <button class="btn-primary" id="scanAllBtn">Scan Watchlist</button>
+        </div>
       </div>
 
-      <div class="filter-group">
-        <label for="gapThreshold">Min Gap:</label>
-        <select id="gapThreshold">
-          <option value="0">All Gaps (≥ 0 pts)</option>
-          <option value="20">≥ 20 pts</option>
-          <option value="50">≥ 50 pts</option>
-          <option value="100">≥ 100 pts</option>
-          <option value="200">≥ 200 pts</option>
-        </select>
-      </div>
-    </div>
+      <!-- Top Point Gap Carousel Ticker (Auto-rotating, Fading Ends, Decorative Only) -->
+      <div class="carousel-section">
+        <div class="carousel-label">
+          <span>Top Gaps:</span>
+        </div>
 
-    <!-- Strategy Settings (Syncs with extension logic) -->
-    <div class="toolbar-row" style="border-top: 1px solid var(--border); padding-top: 10px;">
-      <div class="filter-group">
-        <label for="refPriceSourceSelect">Reference Anchor:</label>
-        <select id="refPriceSourceSelect">
-          <option value="prev_open">Previous Day Open (Default)</option>
-          <option value="today_open">Today's Open</option>
-          <option value="spot">Live Spot Price</option>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label for="rankModeSelect">Ranking Mode:</label>
-        <select id="rankModeSelect">
-          <option value="total">Total (Call + Put)</option>
-          <option value="max">Max (Call vs Put)</option>
-          <option value="call_put">Call/Put Classic</option>
-          <option value="call">Call OI Only</option>
-          <option value="put">Put OI Only</option>
-        </select>
+        <div class="carousel-track-wrapper" id="carouselTrack">
+          <div class="carousel-item">
+            <span class="carousel-sym">NIFTY</span>
+            <span class="carousel-pts">-- pts</span>
+          </div>
+          <div class="carousel-item">
+            <span class="carousel-sym">BANKNIFTY</span>
+            <span class="carousel-pts">-- pts</span>
+          </div>
+          <div class="carousel-item">
+            <span class="carousel-sym">FINNIFTY</span>
+            <span class="carousel-pts">-- pts</span>
+          </div>
+          <div class="carousel-item">
+            <span class="carousel-sym">RELIANCE</span>
+            <span class="carousel-pts">-- pts</span>
+          </div>
+          <div class="carousel-item">
+            <span class="carousel-sym">HDFCBANK</span>
+            <span class="carousel-pts">-- pts</span>
+          </div>
+        </div>
       </div>
 
-      <div class="filter-group">
-        <label for="dataBasisSelect">Data Basis:</label>
-        <select id="dataBasisSelect">
-          <option value="total">Total OI</option>
-          <option value="change">OI Change</option>
-        </select>
+      <!-- Top Filter and Search Console -->
+      <div class="console-panel">
+        <div class="console-row">
+          <div class="field-wrap">
+            <div class="search-input-wrap">
+              <svg class="search-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="searchInput" class="search-input" placeholder="Search symbol...">
+            </div>
+          </div>
+
+          <div class="field-wrap">
+            <label for="categoryFilter">Category:</label>
+            <div class="select">
+              <select id="categoryFilter">
+                <option value="all">All Symbols</option>
+                <option value="indices">Indices Only</option>
+                <option value="stocks">Equities Only</option>
+              </select>
+              <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+                <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <div class="field-wrap">
+            <label for="sortBySelect">Sort By:</label>
+            <div class="select">
+              <select id="sortBySelect">
+                <option value="gap_desc">Highest Point Gap (R1 - S1)</option>
+                <option value="gap_asc">Lowest Point Gap (R1 - S1)</option>
+                <option value="pct_desc">Highest % Spread</option>
+                <option value="upside_desc">Highest Upside Room (R1 - Ref)</option>
+                <option value="downside_desc">Highest Downside Room (Ref - S1)</option>
+                <option value="full_gap_desc">Full Spread (R3 - S3)</option>
+                <option value="symbol_asc">Symbol (A - Z)</option>
+              </select>
+              <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+                <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <div class="field-wrap">
+            <label for="gapThreshold">Min Gap:</label>
+            <div class="select">
+              <select id="gapThreshold">
+                <option value="0">All Gaps (&ge; 0 pts)</option>
+                <option value="20">&ge; 20 pts</option>
+                <option value="50">&ge; 50 pts</option>
+                <option value="100">&ge; 100 pts</option>
+              </select>
+              <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+                <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Strategy Options Row -->
+        <div class="console-row console-divider">
+          <div class="field-wrap">
+            <label for="refPriceSourceSelect">Ref Anchor:</label>
+            <div class="select">
+              <select id="refPriceSourceSelect">
+                <option value="prev_open">Previous Day Open</option>
+                <option value="today_open">Today's Open</option>
+                <option value="spot">Live Spot Price</option>
+              </select>
+              <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+                <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <div class="field-wrap">
+            <label for="rankModeSelect">Mode:</label>
+            <div class="select">
+              <select id="rankModeSelect">
+                <option value="call_put">Call/Put Classic</option>
+                <option value="total">Total (Call+Put)</option>
+                <option value="max">Max (Call vs Put)</option>
+                <option value="call">Call OI Only</option>
+                <option value="put">Put OI Only</option>
+              </select>
+              <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+                <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <div class="field-wrap">
+            <label for="dataBasisSelect">Basis:</label>
+            <div class="select">
+              <select id="dataBasisSelect">
+                <option value="total">Total OI</option>
+                <option value="change">OI Change</option>
+              </select>
+              <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+                <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <div class="field-wrap">
+            <!-- From Uiverse.io by aboalsim114 -->
+            <label class="container">
+              <input type="checkbox" id="excludeAtmCheck" checked>
+              <div class="checkmark"></div>
+              <span>Exclude ATM Strike</span>
+            </label>
+          </div>
+
+          <div class="field-wrap" style="margin-left: auto;">
+            <button class="btn-secondary" id="openWatchlistBtn">Watchlist</button>
+            <button class="btn-secondary" id="exportCsvBtn">Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="progress-bar-container" id="progressContainer">
+          <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
       </div>
 
-      <div class="filter-group">
-        <label>
-          <input type="checkbox" id="excludeAtmCheck" checked style="vertical-align: middle; margin-right: 4px;">
-          Exclude ATM Strike (Opening Candle)
-        </label>
+      <!-- Main Content: Pure Rankings Table -->
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th data-sort="symbol">Symbol</th>
+                <th data-sort="gap">Point Gap (R1 - S1)</th>
+                <th data-sort="ref">Ref Price</th>
+                <th data-sort="spot">Spot Price</th>
+                <th>ATM Strike (Excl)</th>
+                <th>Support &amp; Resistance (R &amp; S)</th>
+                <th>Room (Up / Down)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="stocksTableBody">
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                  Click <strong>"Scan Watchlist"</strong> to load real-time option chain levels and rank by point gap.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Table View -->
-  <div class="table-container">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th data-sort="symbol">Symbol</th>
-          <th data-sort="gap">Point Gap (R1 - S1)</th>
-          <th data-sort="ref">Ref Price</th>
-          <th data-sort="spot">Spot Price</th>
-          <th>ATM Strike (Excl)</th>
-          <th>Resistance (R1 | R2 | R3)</th>
-          <th>Support (S1 | S2 | S3)</th>
-          <th>Room (Up / Down)</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="stocksTableBody">
-        <tr>
-          <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 40px;">
-            Click <strong>"⚡ Scan All Watchlist"</strong> to fetch live NSE Option Chain levels and rank by Point Gap.
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    </main>
   </div>
 
   <!-- Watchlist Modal -->
   <div class="modal-backdrop" id="watchlistModal">
-    <div class="modal-box">
+    <div class="modal-card">
       <div class="modal-title">Manage Watchlist Symbols</div>
-      <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
-        Enter symbols separated by commas or newlines (F&O stocks & indices supported by NSE):
+      <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">
+        Enter symbols separated by commas or newlines:
       </p>
-      <textarea id="watchlistTextarea" placeholder="NIFTY, BANKNIFTY, FINNIFTY, RELIANCE, HDFCBANK..."></textarea>
-      <div class="modal-actions">
-        <button id="resetWatchlistBtn" class="secondary">Reset to Default</button>
-        <button id="cancelWatchlistBtn" class="secondary">Cancel</button>
-        <button id="saveWatchlistBtn">Save Watchlist</button>
+      <textarea id="watchlistTextarea"></textarea>
+      <div class="modal-btns">
+        <button id="resetWatchlistBtn" class="btn-secondary">Reset Default</button>
+        <button id="cancelWatchlistBtn" class="btn-secondary">Cancel</button>
+        <button id="saveWatchlistBtn" class="btn-primary">Save Watchlist</button>
       </div>
     </div>
   </div>

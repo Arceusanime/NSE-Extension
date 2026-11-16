@@ -408,28 +408,34 @@ def cmd_collect(args):
 
 
 # ───────────────────────── step 2: levels ─────────────────────────
-def score_of(c, p, mode):
+def score_of(c, p, mode, basis="total"):
     if mode == "max":
+        if basis == "change":
+            return c if abs(c) >= abs(p) else p
         return max(c, p)
     if mode == "call":
         return c
     if mode == "put":
         return p
+    if basis == "change":
+        return abs(c) + abs(p)
     return c + p                                       # total
 
 
-def pick_levels(strikes, calls, puts, open_price, top_n, mode, exclude_atm=True):
+def pick_levels(strikes, calls, puts, open_price, top_n, mode, exclude_atm=True, basis="total"):
     """Top N strikes above the open and top N below it, ranked by score (highest first).
     When exclude_atm is True, rounds open_price to the nearest strike (ATM) and excludes that strike completely.
+    When basis is 'change', ranks by absolute magnitude (abs(score)) to prioritize major build-up or unwinding.
     """
-    scored = [(s, score_of(c, p, mode)) for s, c, p in zip(strikes, calls, puts)]
+    scored = [(s, score_of(c, p, mode, basis)) for s, c, p in zip(strikes, calls, puts)]
+    key_fn = (lambda x: -abs(x[1])) if basis == "change" else (lambda x: -x[1])
     if exclude_atm and strikes:
         atm_strike = min(strikes, key=lambda s: abs(s - open_price))
-        above = sorted([x for x in scored if x[0] > atm_strike], key=lambda x: -x[1])[:top_n]
-        below = sorted([x for x in scored if x[0] < atm_strike], key=lambda x: -x[1])[:top_n]
+        above = sorted([x for x in scored if x[0] > atm_strike], key=key_fn)[:top_n]
+        below = sorted([x for x in scored if x[0] < atm_strike], key=key_fn)[:top_n]
     else:
-        above = sorted([x for x in scored if x[0] >= open_price], key=lambda x: -x[1])[:top_n]
-        below = sorted([x for x in scored if x[0] < open_price], key=lambda x: -x[1])[:top_n]
+        above = sorted([x for x in scored if x[0] >= open_price], key=key_fn)[:top_n]
+        below = sorted([x for x in scored if x[0] < open_price], key=key_fn)[:top_n]
     return [s for s, _ in above], [s for s, _ in below]
 
 
@@ -498,7 +504,7 @@ def cmd_levels(args):
             continue
         o, was_close = opens[tv]
         used_close += was_close
-        above, below = pick_levels(rec["strikes"], rec["call"], rec["put"], o, TOP_N, args.rank)
+        above, below = pick_levels(rec["strikes"], rec["call"], rec["put"], o, TOP_N, args.rank, basis=rec.get("basis", "total"))
         lines.append(f"{tv} | {','.join(fmt(x) for x in above)} | {','.join(fmt(x) for x in below)}")
 
     chunks = chunk_lines(lines, CHUNK_CHARS)

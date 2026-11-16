@@ -1,232 +1,893 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" data-theme="dark" data-accent="mono">
 <head>
   <meta charset="utf-8">
   <style>
-    body {
-      width: 320px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: #131722;
-      color: #d1d4dc;
-      padding: 12px;
-      margin: 0;
+    :root {
+      /* Vercel Theme Tokens */
+      --bg-page: #000000;
+      --bg-card: #0a0a0c;
+      --bg-card-hover: #121215;
+      --bg-input: #08080a;
+      --border: rgba(255, 255, 255, 0.12);
+      --border-focus: rgba(255, 255, 255, 0.28);
+      --text-main: #ffffff;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+
+      /* Monochrome Accent Default */
+      --accent: #ffffff;
+      --accent-text: #000000;
+      --accent-glow: rgba(255, 255, 255, 0.15);
+      --accent-subtle: rgba(255, 255, 255, 0.08);
+      --accent-border: rgba(255, 255, 255, 0.22);
+
+      --res-color: #f87171;
+      --res-bg: rgba(248, 113, 113, 0.12);
+      --sup-color: #34d399;
+      --sup-bg: rgba(52, 211, 153, 0.12);
+      --atm-color: #94a3b8;
+
+      --radius-card: 8px;
+      --radius-sm: 6px;
+      --radius-pill: 9999px;
+      --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      --font-stack: -apple-system, BlinkMacSystemFont, 'Geist', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    [data-theme="light"] {
+      --bg-page: #fcfcfc;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f4f4f5;
+      --bg-input: #f4f4f5;
+      --border: #e4e4e7;
+      --border-focus: #a1a1aa;
+      --text-main: #09090b;
+      --text-muted: #71717a;
+      --text-dim: #a1a1aa;
+
+      --accent: #09090b;
+      --accent-text: #ffffff;
+      --accent-glow: rgba(0, 0, 0, 0.1);
+      --accent-subtle: rgba(0, 0, 0, 0.06);
+      --accent-border: rgba(0, 0, 0, 0.18);
+    }
+
+    /* Accent color options */
+    [data-accent="mono"] {}
+    [data-accent="gold"] {
+      --accent: #d97706;
+      --accent-text: #ffffff;
+      --accent-glow: rgba(217, 119, 6, 0.25);
+      --accent-subtle: rgba(217, 119, 6, 0.12);
+      --accent-border: rgba(217, 119, 6, 0.32);
+    }
+    [data-accent="blue"] {
+      --accent: #2563eb;
+      --accent-text: #ffffff;
+      --accent-glow: rgba(37, 99, 235, 0.25);
+      --accent-subtle: rgba(37, 99, 235, 0.12);
+      --accent-border: rgba(37, 99, 235, 0.32);
+    }
+    [data-accent="emerald"] {
+      --accent: #059669;
+      --accent-text: #ffffff;
+      --accent-glow: rgba(5, 150, 105, 0.25);
+      --accent-subtle: rgba(5, 150, 105, 0.12);
+      --accent-border: rgba(5, 150, 105, 0.32);
+    }
+    [data-accent="purple"] {
+      --accent: #7c3aed;
+      --accent-text: #ffffff;
+      --accent-glow: rgba(124, 58, 237, 0.25);
+      --accent-subtle: rgba(124, 58, 237, 0.12);
+      --accent-border: rgba(124, 58, 237, 0.32);
+    }
+
+    * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    h3 {
-      margin: 0 0 4px 0;
-      font-size: 15px;
-      font-weight: 700;
-      color: #ffffff;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .badge-mode {
-      font-size: 10px;
-      padding: 2px 6px;
-      background: #2962ff;
-      border-radius: 3px;
-      color: #fff;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-    .meta {
-      font-size: 11px;
-      color: #787b86;
-      margin-bottom: 8px;
-      border-bottom: 1px solid #2a2e39;
-      padding-bottom: 6px;
-      line-height: 1.4;
-    }
-    .row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 5px 8px;
-      margin-bottom: 4px;
-      background: #1e222d;
-      border-radius: 4px;
+
+    body {
+      width: 380px;
+      font-family: var(--font-stack);
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      padding: 12px;
+      line-height: 1.45;
       font-size: 12px;
-      transition: background 0.15s ease;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      overflow-x: hidden;
     }
-    .row:hover {
-      background: #262b3d;
+
+    /* Top Brand Header */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
     }
-    .res { border-left: 3px solid #ef5350; }
-    .sup { border-left: 3px solid #26a69a; }
-    .lbl { font-weight: 700; width: 28px; }
-    .res .lbl { color: #ef5350; }
-    .sup .lbl { color: #26a69a; }
-    .strike { font-weight: 700; color: #ffffff; margin-right: 6px; }
-    .oi-val { font-size: 11px; color: #2962ff; font-weight: 600; }
-    .breakdown { font-size: 10px; color: #787b86; margin-left: 4px; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .brand-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: var(--accent-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      transition: var(--transition-smooth);
+    }
+
+    h3 {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-main);
+      letter-spacing: -0.2px;
+    }
+
+    /* Theme & Accent Controls */
+    .theme-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .accent-picker {
+      display: flex;
+      gap: 4px;
+      padding: 3px 5px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+    }
+
+    .accent-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: transform 0.15s ease;
+    }
+    .accent-dot:hover {
+      transform: scale(1.2);
+    }
+    .accent-dot.mono { background: #e5e7eb; }
+    .accent-dot.gold { background: #d97706; }
+    .accent-dot.blue { background: #2563eb; }
+    .accent-dot.emerald { background: #059669; }
+    .accent-dot.purple { background: #7c3aed; }
+
+    /* From Uiverse.io by JustCode14 */ 
+    /* Theme Switch */
+    .switch {
+      font-size: 10px;
+      position: relative;
+      display: inline-block;
+      width: 4em;
+      height: 2.2em;
+      border-radius: 30px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      flex-shrink: 0;
+      vertical-align: middle;
+      cursor: pointer;
+    }
+
+    /* Hide default HTML checkbox */
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    /* The slider */
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #2a2a2a;
+      transition: 0.4s;
+      border-radius: 30px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 1.2em;
+      width: 1.2em;
+      border-radius: 20px;
+      left: 0.5em;
+      bottom: 0.5em;
+      transition: 0.4s;
+      transition-timing-function: cubic-bezier(0.81, -0.04, 0.38, 1.5);
+      box-shadow: inset 8px -4px 0px 0px #fff;
+    }
+
+    .switch input:checked + .slider {
+      background-color: #00a6ff;
+      border-color: #0088cc;
+    }
+
+    .switch input:checked + .slider:before {
+      transform: translateX(1.8em);
+      box-shadow: inset 15px -4px 0px 15px #ffcf48;
+    }
+
+    .star {
+      background-color: #fff;
+      border-radius: 50%;
+      position: absolute;
+      width: 3.5px;
+      transition: all 0.4s;
+      height: 3.5px;
+    }
+
+    .star_1 {
+      left: 2.5em;
+      top: 0.5em;
+    }
+
+    .star_2 {
+      left: 2.2em;
+      top: 1.2em;
+    }
+
+    .star_3 {
+      left: 3em;
+      top: 0.9em;
+    }
+
+    .switch input:checked ~ .slider .star {
+      opacity: 0;
+    }
+
+    .cloud {
+      width: 3.5em;
+      position: absolute;
+      bottom: -1.4em;
+      left: -1.1em;
+      opacity: 0;
+      transition: all 0.4s;
+      pointer-events: none;
+    }
+
+    .switch input:checked ~ .slider .cloud {
+      opacity: 1;
+    }
+
+    /* Top Quick Action Buttons Bar (Moved on Top) */
+    .top-action-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-main);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: var(--transition-smooth);
+      white-space: nowrap;
+    }
+    .action-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-focus);
+    }
+    .action-btn.primary {
+      background: var(--accent);
+      color: var(--accent-text);
+      border-color: transparent;
+      font-weight: 600;
+    }
+    .action-btn.primary:hover {
+      opacity: 0.92;
+    }
+
+    /* Status Card */
+    .status-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      transition: var(--transition-smooth);
+    }
+
+    .status-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 3px;
+    }
+
+    .symbol-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .mode-pill {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 1.5px 5px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .meta-line {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Horizontal S&R Levels Matrix */
+    .matrix-section {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+
+    .matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+    }
+
+    .matrix-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 5px 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 2.5px;
+      transition: var(--transition-smooth);
+    }
+    .matrix-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-focus);
+    }
+
+    .matrix-card.res {
+      border-top: 2.5px solid var(--res-color);
+    }
+    .matrix-card.sup {
+      border-top: 2.5px solid var(--sup-color);
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      line-height: 1.1;
+    }
+    .card-badge.res {
+      background: var(--res-bg);
+      color: var(--res-color);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+    }
+    .card-badge.sup {
+      background: var(--sup-bg);
+      color: var(--sup-color);
+      border: 1px solid rgba(52, 211, 153, 0.25);
+    }
+
+    .card-strike {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9.5px;
+    }
+
+    .card-score {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .card-oi {
+      color: var(--text-muted);
+      font-size: 9px;
+    }
+
+    /* ATM Pivot Divider Strip */
+    .atm-strip {
+      background: var(--bg-input);
+      border: 1px dashed var(--atm-color);
+      border-radius: var(--radius-sm);
+      padding: 3.5px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+    }
+
+    .atm-strip-badge {
+      font-size: 8.5px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: rgba(148, 163, 184, 0.15);
+      color: var(--atm-color);
+    }
+
+    .atm-strip-strike {
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .atm-strip-note {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    /* Collapsible Settings Accordion (No Scrolling Needed!) */
+    details.settings-accordion {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      margin-bottom: 6px;
+      transition: var(--transition-smooth);
+    }
+    details.settings-accordion[open] {
+      border-color: var(--border-focus);
+    }
+
+    summary.settings-summary {
+      padding: 7px 10px;
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      list-style: none;
+      user-select: none;
+    }
+    summary.settings-summary::-webkit-details-marker {
+      display: none;
+    }
+    summary.settings-summary:hover {
+      color: var(--text-main);
+    }
+
+    .accordion-content {
+      padding: 6px 10px 10px;
+      border-top: 1px solid var(--border-subtle);
+    }
 
     .section-title {
-      font-size: 11px;
+      font-size: 9px;
       text-transform: uppercase;
-      font-weight: 700;
-      color: #787b86;
-      margin: 10px 0 6px 0;
+      font-weight: 600;
+      color: var(--text-muted);
       letter-spacing: 0.5px;
+      margin-bottom: 5px;
+      margin-top: 4px;
     }
-    .settings-grid {
+
+    .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
-      margin-bottom: 8px;
+      margin-bottom: 5px;
     }
-    .setting-item {
+
+    .field-group {
       display: flex;
       flex-direction: column;
+      gap: 2px;
     }
-    .setting-item label {
-      font-size: 10px;
-      color: #787b86;
-      margin-bottom: 3px;
+
+    label {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
     }
-    select, input[type="number"], input[type="text"] {
-      background: #1e222d;
-      color: #d1d4dc;
-      border: 1px solid #2a2e39;
-      padding: 5px 6px;
-      border-radius: 4px;
-      font-size: 11px;
+
+    /* From Uiverse.io by 3bdel3ziz-T */ 
+    .select {
+      width: 100%;
+      cursor: pointer;
+      position: relative;
+      transition: 300ms;
+      color: var(--text-main);
+      display: inline-flex;
+      align-items: center;
+      background-color: #2a2f3b;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-theme="light"] .select {
+      background-color: #f1f3f7;
+    }
+
+    .select:hover {
+      background-color: #323741;
+      border-color: var(--border-hover);
+    }
+
+    [data-theme="light"] .select:hover {
+      background-color: #e5e8ef;
+    }
+
+    .select:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    .select select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      width: 100%;
+      background: transparent;
+      border: none;
       outline: none;
-      box-sizing: border-box;
+      color: inherit;
+      font-family: inherit;
+      font-size: 10.5px;
+      font-weight: 500;
+      padding: 4.5px 24px 4.5px 8px;
+      cursor: pointer;
+      z-index: 2;
     }
-    select:focus, input:focus {
-      border-color: #2962ff;
+
+    .select select option {
+      background-color: #2a2f3b;
+      color: var(--text-main);
+      padding: 4px 8px;
+      font-size: 10.5px;
     }
-    .atm-excl {
-      border-left: 3px solid #787b86;
-      background: #191c26;
-      opacity: 0.85;
+
+    [data-theme="light"] .select select option {
+      background-color: #ffffff;
+      color: #09090b;
     }
-    .atm-excl .lbl { color: #90a4ae; }
-    .controls {
+
+    .select .arrow {
+      position: absolute;
+      right: 7px;
+      top: 50%;
+      margin-top: -4.5px;
+      height: 9px;
+      width: 10px;
+      transform: rotate(-90deg);
+      fill: var(--text-secondary);
+      pointer-events: none;
+      transition: 300ms ease;
+      z-index: 1;
+    }
+
+    .select:hover .arrow,
+    .select:focus-within .arrow {
+      transform: rotate(0deg);
+      fill: var(--accent);
+    }
+
+    input[type="number"], input[type="text"] {
+      background: var(--bg-input);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 4.5px 6px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 10.5px;
+      outline: none;
+      transition: var(--transition-smooth);
+    }
+    input:focus {
+      border-color: var(--accent);
+    }
+
+    .toggle-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid #2a2e39;
-      font-size: 12px;
+      padding: 4px 0;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 10px;
+      color: var(--text-main);
     }
-    .btn-group {
-      display: flex;
+
+    /* From Uiverse.io by aboalsim114 */ 
+    /* Custom Checkbox adapted to active color scheme */
+    .container {
+      display: inline-flex;
+      align-items: center;
       gap: 6px;
-      margin-top: 8px;
-    }
-    button {
-      flex: 1;
-      padding: 7px;
-      background: #2962ff;
-      color: #ffffff;
-      border: none;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
       cursor: pointer;
-      transition: background 0.15s ease;
+      user-select: none;
+      position: relative;
     }
-    button:hover { background: #1e53e5; }
-    button.secondary {
-      background: #2a2e39;
-      color: #d1d4dc;
+
+    /* Hide the default checkbox */
+    .container input {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      height: 0;
+      width: 0;
     }
-    button.secondary:hover { background: #363a45; color: #fff; }
+
+    /* Create a custom checkbox */
+    .checkmark {
+      position: relative;
+      box-shadow: var(--border) 0px 0px 0px 2px;
+      background-color: var(--bg-card);
+      height: 16px;
+      width: 16px;
+      flex-shrink: 0;
+      transition: all 0.2s ease 0s;
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    .container:hover .checkmark {
+      box-shadow: var(--accent) 0px 0px 0px 2px;
+    }
+
+    .container input:checked ~ .checkmark {
+      box-shadow: var(--accent) 0px 0px 0px 2px;
+      background-color: var(--accent);
+      height: 16px;
+      width: 16px;
+    }
+
+    .checkmark:after {
+      content: "";
+      position: absolute;
+      display: none;
+    }
+
+    .container input:checked ~ .checkmark:after {
+      display: block;
+    }
+
+    /* Style the checkmark/indicator */
+    .container .checkmark:after {
+      left: 5px;
+      top: 2px;
+      width: 3.5px;
+      height: 7px;
+      border: solid var(--accent-text);
+      border-width: 0 1.8px 1.8px 0;
+      transform: rotate(45deg);
+      transition: all 250ms ease-in-out;
+    }
+
     .pine-box {
       margin-top: 6px;
-      font-family: monospace;
-      font-size: 10px;
-      background: #181b24;
-      padding: 4px 6px;
-      border-radius: 3px;
-      color: #9db2d5;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 9.5px;
+      background: var(--bg-input);
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      color: var(--accent);
       word-break: break-all;
       display: none;
-      border: 1px solid #2a2e39;
+      border: 1px solid var(--border);
     }
   </style>
 </head>
 <body>
-  <h3>
-    <span id="title">NSE OI S&R Overlay</span>
-    <span class="badge-mode" id="modeBadge">TOTAL OI</span>
-  </h3>
-  <div class="meta" id="meta">Open any NSE F&O chart on TradingView</div>
 
-  <div id="rows"></div>
-
-  <div class="section-title">Reference Price & Anchor</div>
-  <div class="settings-grid">
-    <div class="setting-item" style="grid-column: span 2;">
-      <label for="refPriceSelect">Reference Price Anchor</label>
-      <select id="refPriceSelect">
-        <option value="prev_open">Previous Day Open (Default)</option>
-        <option value="today_open">Today's Open</option>
-        <option value="custom">Custom Price (e.g. 1336)</option>
-        <option value="spot">Live Spot Price</option>
-      </select>
+  <!-- Top Navigation & Theme Settings -->
+  <div class="header-bar">
+    <div class="brand">
+      <div class="brand-icon">OI</div>
+      <h3>NSE S&amp;R Pro</h3>
     </div>
-  </div>
-  <div id="customPriceRow" class="settings-grid" style="display: none;">
-    <div class="setting-item" style="grid-column: span 2;">
-      <label for="customPriceInput">Custom Open/Ref Price</label>
-      <input type="number" step="any" id="customPriceInput" placeholder="Enter reference price (e.g. 1336)">
-    </div>
-  </div>
-
-  <div class="section-title">Analysis Strategy (oi_fetch)</div>
-  <div class="settings-grid">
-    <div class="setting-item">
-      <label for="rankModeSelect">Ranking Mode</label>
-      <select id="rankModeSelect">
-        <option value="total">Total (Call+Put)</option>
-        <option value="max">Max (Call vs Put)</option>
-        <option value="call_put">Call / Put Classic</option>
-        <option value="call">Call OI Only</option>
-        <option value="put">Put OI Only</option>
-      </select>
-    </div>
-    <div class="setting-item">
-      <label for="dataBasisSelect">Data Basis</label>
-      <select id="dataBasisSelect">
-        <option value="total">Total OI</option>
-        <option value="change">OI Change</option>
-      </select>
-    </div>
-  </div>
-  <div class="settings-grid">
-    <div class="setting-item" style="grid-column: span 2;">
-      <label for="strikesRangeSelect">Strike Depth Around ATM</label>
-      <select id="strikesRangeSelect">
-        <option value="5">ATM ± 5 Strikes (Default)</option>
-        <option value="7">ATM ± 7 Strikes (Wide)</option>
-        <option value="10">ATM ± 10 Strikes (Deep)</option>
-      </select>
+    <div class="theme-toolbar">
+      <div class="accent-picker" title="Change Color Palette">
+        <div class="accent-dot mono" data-color="mono" title="Monochrome"></div>
+        <div class="accent-dot gold" data-color="gold" title="Gold"></div>
+        <div class="accent-dot blue" data-color="blue" title="Blue"></div>
+        <div class="accent-dot emerald" data-color="emerald" title="Emerald"></div>
+        <div class="accent-dot purple" data-color="purple" title="Purple"></div>
+      </div>
+      <!-- From Uiverse.io by JustCode14 --> 
+      <label class="switch" title="Toggle Light / Dark Mode">
+        <input id="themeToggleCheckbox" type="checkbox" />
+        <span class="slider">
+          <div class="star star_1"></div>
+          <div class="star star_2"></div>
+          <div class="star star_3"></div>
+          <svg viewBox="0 0 16 16" class="cloud_1 cloud">
+            <path
+              transform="matrix(.77976 0 0 .78395-299.99-418.63)"
+              fill="#fff"
+              d="m391.84 540.91c-.421-.329-.949-.524-1.523-.524-1.351 0-2.451 1.084-2.485 2.435-1.395.526-2.388 1.88-2.388 3.466 0 1.874 1.385 3.423 3.182 3.667v.034h12.73v-.006c1.775-.104 3.182-1.584 3.182-3.395 0-1.747-1.309-3.186-2.994-3.379.007-.106.011-.214.011-.322 0-2.707-2.271-4.901-5.072-4.901-2.073 0-3.856 1.202-4.643 2.925"
+            ></path>
+          </svg>
+        </span>
+      </label>
     </div>
   </div>
 
-  <div class="controls">
-    <span>Exclude ATM Strike from S&R</span>
-    <input type="checkbox" id="excludeAtmCheck" checked>
-  </div>
-
-  <div class="controls">
-    <span>Show Lines on Chart</span>
-    <input type="checkbox" id="toggleVis" checked>
-  </div>
-
-  <div class="btn-group">
-    <button id="copyPineBtn" class="secondary" title="Copy compact Pine Script string format">Copy Pine Line</button>
-    <button id="refreshBtn">Refresh Chart OI</button>
-  </div>
-  <div style="margin-top: 8px;">
-    <button id="openDashboardBtn" style="width: 100%; padding: 8px; font-weight: 700; background: #2962ff; display: flex; align-items: center; justify-content: center; gap: 6px;">
-      📊 Open Full Scanner Dashboard ↗
+  <!-- Top Action Buttons (Moved to Top - No Scrolling Needed!) -->
+  <div class="top-action-bar">
+    <button id="refreshBtn" class="action-btn primary" title="Refresh OI levels directly on chart">
+      Refresh Chart
+    </button>
+    <button id="openDashboardBtn" class="action-btn" title="Open full-screen scanner dashboard">
+      Dashboard -&gt;
+    </button>
+    <button id="copyPineBtn" class="action-btn" title="Copy compact Pine Script string format">
+      Copy Pine
     </button>
   </div>
+
+  <!-- Status Card -->
+  <div class="status-card">
+    <div class="status-card-top">
+      <div class="symbol-title" id="title">CONNECTING...</div>
+      <span class="mode-pill" id="modeBadge">TOTAL OI</span>
+    </div>
+    <div class="meta-line" id="meta">Connecting to TradingView chart...</div>
+  </div>
+
+  <!-- Horizontal S&R Levels Container -->
+  <div id="rows"></div>
+
+  <!-- Collapsible Strategy Settings Panel -->
+  <details class="settings-accordion">
+    <summary class="settings-summary">
+      <span>Strategy &amp; Anchor Settings</span>
+      <span>▼</span>
+    </summary>
+    <div class="accordion-content">
+      <div class="section-title">Reference Anchor</div>
+      <div class="grid-2">
+        <div class="field-group" style="grid-column: span 2;">
+          <label for="refPriceSelect">Reference Price Anchor</label>
+          <div class="select">
+            <select id="refPriceSelect">
+              <option value="prev_open">Previous Day Open (Default)</option>
+              <option value="today_open">Today's Open</option>
+              <option value="custom">Custom Price</option>
+              <option value="spot">Live Spot Price</option>
+            </select>
+            <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+              <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div id="customPriceRow" class="grid-2" style="display: none;">
+        <div class="field-group" style="grid-column: span 2;">
+          <label for="customPriceInput">Custom Price Value</label>
+          <input type="number" step="any" id="customPriceInput" placeholder="Enter reference price">
+        </div>
+      </div>
+
+      <div class="section-title">Calculation Strategy</div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label for="rankModeSelect">Ranking Mode</label>
+          <div class="select">
+            <select id="rankModeSelect">
+              <option value="call_put">Call/Put Classic</option>
+              <option value="total">Total (Call+Put)</option>
+              <option value="max">Max (Call vs Put)</option>
+              <option value="call">Call OI Only</option>
+              <option value="put">Put OI Only</option>
+            </select>
+            <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+              <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="dataBasisSelect">Data Basis</label>
+          <div class="select">
+            <select id="dataBasisSelect">
+              <option value="total">Total OI</option>
+              <option value="change">OI Change</option>
+            </select>
+            <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+              <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field-group" style="grid-column: span 2;">
+          <label for="strikesRangeSelect">Strike Depth</label>
+          <div class="select">
+            <select id="strikesRangeSelect">
+              <option value="5">ATM +/- 5 Strikes (Default)</option>
+              <option value="7">ATM +/- 7 Strikes (Wide)</option>
+              <option value="10">ATM +/- 10 Strikes (Deep)</option>
+            </select>
+            <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512" class="arrow">
+              <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <span>Exclude ATM Strike from S&amp;R</span>
+        <!-- From Uiverse.io by aboalsim114 -->
+        <label class="container">
+          <input type="checkbox" id="excludeAtmCheck" checked>
+          <div class="checkmark"></div>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span>Show Lines on Chart Overlay</span>
+        <!-- From Uiverse.io by aboalsim114 -->
+        <label class="container">
+          <input type="checkbox" id="toggleVis" checked>
+          <div class="checkmark"></div>
+        </label>
+      </div>
+    </div>
+  </details>
+
   <div id="pineBox" class="pine-box"></div>
 
   <script src="popup.js"></script>

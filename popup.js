@@ -42,70 +42,85 @@ function render(d) {
 
   currentPineLine = d.pineLine || `${symbol} | ${d.r1 || ''},${d.r2 || ''},${d.r3 || ''} | ${d.s1 || ''},${d.s2 || ''},${d.s3 || ''}`;
 
-  const items = [
-    { lbl: 'R3', val: d.r3, obj: d.topCalls?.[2], cls: 'res' },
-    { lbl: 'R2', val: d.r2, obj: d.topCalls?.[1], cls: 'res' },
-    { lbl: 'R1', val: d.r1, obj: d.topCalls?.[0], cls: 'res' }
+  const resCards = [
+    { lbl: 'R1', val: d.r1, obj: d.topCalls?.[0] },
+    { lbl: 'R2', val: d.r2, obj: d.topCalls?.[1] },
+    { lbl: 'R3', val: d.r3, obj: d.topCalls?.[2] }
   ];
 
-  if (d.excludedAtm) {
-    items.push({
-      lbl: 'ATM',
-      val: d.excludedAtm,
-      cls: 'atm-excl',
-      isAtm: true,
-      subText: 'Excluded from S&R (Opening Candle Pivot)'
-    });
-  }
+  const supCards = [
+    { lbl: 'S1', val: d.s1, obj: d.topPuts?.[0] },
+    { lbl: 'S2', val: d.s2, obj: d.topPuts?.[1] },
+    { lbl: 'S3', val: d.s3, obj: d.topPuts?.[2] }
+  ];
 
-  items.push(
-    { lbl: 'S1', val: d.s1, obj: d.topPuts?.[0], cls: 'sup' },
-    { lbl: 'S2', val: d.s2, obj: d.topPuts?.[1], cls: 'sup' },
-    { lbl: 'S3', val: d.s3, obj: d.topPuts?.[2], cls: 'sup' }
-  );
-
-  document.getElementById('rows').innerHTML = items.map(i => {
-    const val = i.val || '--';
-    if (i.isAtm) {
-      return `
-        <div class="row ${i.cls}">
-          <span class="lbl">${i.lbl}</span>
-          <div>
-            <span class="strike">${val}</span>
-            <span class="breakdown">${i.subText}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    const obj = i.obj || {};
+  function renderCard(item, type) {
+    const val = item.val || '--';
+    const obj = item.obj || {};
     const scoreText = obj.scoreFormatted || (obj.score ? formatOI(obj.score) : '');
-    const ce = obj.ceOi ? `CE:${formatOI(obj.ceOi)}` : '';
-    const pe = obj.peOi ? `PE:${formatOI(obj.peOi)}` : '';
-    const breakdown = (ce && pe) ? `(${ce} | ${pe})` : '';
+    const oiText = type === 'res'
+      ? (obj.ceOi ? `CE:${formatOI(obj.ceOi)}` : '')
+      : (obj.peOi ? `PE:${formatOI(obj.peOi)}` : '');
 
     return `
-      <div class="row ${i.cls}">
-        <span class="lbl">${i.lbl}</span>
-        <div>
-          <span class="strike">${val}</span>
-          ${scoreText ? `<span class="oi-val">${scoreText}</span>` : ''}
-          ${breakdown ? `<span class="breakdown">${breakdown}</span>` : ''}
+      <div class="matrix-card ${type}">
+        <div class="card-head">
+          <span class="card-badge ${type}">${item.lbl}</span>
+          <span class="card-strike">${val}</span>
+        </div>
+        <div class="card-meta">
+          <span class="card-score">${scoreText || '--'}</span>
+          <span class="card-oi">${oiText}</span>
         </div>
       </div>
     `;
-  }).join('');
+  }
+
+  const atmHtml = d.excludedAtm ? `
+    <div class="atm-strip">
+      <span class="atm-strip-badge">ATM</span>
+      <span class="atm-strip-strike">${d.excludedAtm}</span>
+      <span class="atm-strip-note">Excluded from S&amp;R (Pivot Anchor)</span>
+    </div>
+  ` : '';
+
+  document.getElementById('rows').innerHTML = `
+    <div class="matrix-section">
+      <div class="matrix-grid">
+        ${resCards.map(c => renderCard(c, 'res')).join('')}
+      </div>
+      ${atmHtml}
+      <div class="matrix-grid">
+        ${supCards.map(c => renderCard(c, 'sup')).join('')}
+      </div>
+    </div>
+  `;
+}
+
+const themeToggleCheckbox = document.getElementById('themeToggleCheckbox');
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  if (themeToggleCheckbox) {
+    themeToggleCheckbox.checked = (theme === 'light');
+  }
 }
 
 // Load initial state
-chrome.storage.local.get(['activeOiData', 'overlayVisible', 'oiSettings'], (res) => {
+chrome.storage.local.get(['activeOiData', 'overlayVisible', 'oiSettings', 'themeMode', 'accentColor'], (res) => {
+  // Theme & Accent setup
+  const theme = res.themeMode || 'dark';
+  const accent = res.accentColor || 'mono';
+  applyTheme(theme);
+  document.documentElement.setAttribute('data-accent', accent);
+
   if (res.activeOiData) {
     render(res.activeOiData);
   }
   document.getElementById('toggleVis').checked = res.overlayVisible !== false;
 
   const settings = Object.assign({}, DEFAULT_SETTINGS, res.oiSettings || {});
-  document.getElementById('rankModeSelect').value = settings.rankMode || 'total';
+  document.getElementById('rankModeSelect').value = settings.rankMode || 'call_put';
   document.getElementById('dataBasisSelect').value = settings.dataBasis || 'total';
   document.getElementById('strikesRangeSelect').value = String(settings.strikesEachSide || 5);
 
@@ -116,6 +131,23 @@ chrome.storage.local.get(['activeOiData', 'overlayVisible', 'oiSettings'], (res)
     document.getElementById('customPriceInput').value = settings.customRefPrice;
   }
   document.getElementById('excludeAtmCheck').checked = settings.excludeAtm !== false;
+});
+
+// Theme and Accent event listeners
+themeToggleCheckbox?.addEventListener('change', () => {
+  const next = themeToggleCheckbox.checked ? 'light' : 'dark';
+  applyTheme(next);
+  chrome.storage.local.set({ themeMode: next });
+});
+
+document.querySelectorAll('.accent-dot').forEach((dot) => {
+  dot.addEventListener('click', () => {
+    const color = dot.getAttribute('data-color');
+    if (color) {
+      document.documentElement.setAttribute('data-accent', color);
+      chrome.storage.local.set({ accentColor: color });
+    }
+  });
 });
 
 // Listen for updates from background

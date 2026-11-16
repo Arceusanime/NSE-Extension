@@ -73,30 +73,41 @@ function enrichStockData(raw) {
   };
 }
 
-// Render KPI Cards
-function updateKpiCards(data) {
-  document.getElementById('statTracked').textContent = data.length;
+// Carousel Auto-rotation Timer (Decorative Ticker)
+let carouselAutoTimer = null;
+function startCarouselAutoRotate() {
+  const track = document.getElementById('carouselTrack');
+  if (!track) return;
+  if (carouselAutoTimer) clearInterval(carouselAutoTimer);
+  carouselAutoTimer = setInterval(() => {
+    if (!track) return;
+    const maxScroll = track.scrollWidth - track.clientWidth;
+    if (maxScroll <= 4) return;
+    if (track.scrollLeft >= maxScroll - 6) {
+      track.scrollTo({ left: 0, behavior: 'smooth' });
+    } else {
+      track.scrollBy({ left: 160, behavior: 'smooth' });
+    }
+  }, 2200);
+}
 
-  const validGaps = data.filter((d) => d.pointGap > 0);
-  if (!validGaps.length) {
-    document.getElementById('statAvgGap').textContent = '-- pts';
-    document.getElementById('statMaxGap').textContent = '--';
-    document.getElementById('statMinGap').textContent = '--';
-    return;
-  }
+// Update Top Point Gap Carousel Ticker (Auto-rotating, Decorative Only)
+function updateCarousel(data) {
+  const valid = data.filter((d) => d.pointGap > 0).sort((a, b) => b.pointGap - a.pointGap);
+  const track = document.getElementById('carouselTrack');
+  if (!track || !valid.length) return;
 
-  const avgGap = (validGaps.reduce((acc, c) => acc + c.pointGap, 0) / validGaps.length).toFixed(1);
-  document.getElementById('statAvgGap').textContent = `${avgGap} pts`;
+  // Repeat items if small list for seamless loop
+  const displayItems = valid.length < 8 ? [...valid, ...valid] : valid.slice(0, 16);
 
-  const sortedByGap = [...validGaps].sort((a, b) => b.pointGap - a.pointGap);
-  const max = sortedByGap[0];
-  const min = sortedByGap[sortedByGap.length - 1];
+  track.innerHTML = displayItems.map((item) => `
+    <div class="carousel-item">
+      <span class="carousel-sym">${item.symbol}</span>
+      <span class="carousel-pts">${item.pointGap} pts</span>
+    </div>
+  `).join('');
 
-  document.getElementById('statMaxGap').textContent = `${max.symbol} (${max.pointGap} pts)`;
-  document.getElementById('statMaxGapSub').textContent = `Spread: ${max.pointGapPct}% (${max.r1} - ${max.s1})`;
-
-  document.getElementById('statMinGap').textContent = `${min.symbol} (${min.pointGap} pts)`;
-  document.getElementById('statMinGapSub').textContent = `Spread: ${min.pointGapPct}% (${min.r1} - ${min.s1})`;
+  startCarouselAutoRotate();
 }
 
 // Filter and Sort Table
@@ -146,8 +157,8 @@ function renderTable() {
   if (!items.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 40px;">
-          ${scannedData.length ? 'No stocks match the current filter criteria.' : 'Click "⚡ Scan All Watchlist" to load real-time option chain data.'}
+        <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px;">
+          ${scannedData.length ? 'No stocks match the current filter criteria.' : 'Click "Scan Watchlist" to load real-time option chain levels.'}
         </td>
       </tr>
     `;
@@ -155,9 +166,9 @@ function renderTable() {
   }
 
   tbody.innerHTML = items.map((item, idx) => {
-    const symTag = item.isIndex ? '<span class="sym-tag index">INDEX</span>' : '<span class="sym-tag">STOCK</span>';
+    const symTag = item.isIndex ? '<span class="type-badge index">INDEX</span>' : '<span class="type-badge">STOCK</span>';
     const refSrc = (item.refPriceSource || 'spot').replace(/_/g, ' ').toUpperCase();
-    const atmExcl = item.excludedAtm ? `${item.excludedAtm} <span style="font-size:9px; color:#ffb74d;">[EXCL]</span>` : (item.atmStrike || '--');
+    const atmExcl = item.excludedAtm ? `${item.excludedAtm} <span style="font-size:9.5px; opacity:0.8;">[EXCL]</span>` : (item.atmStrike || '--');
     
     const r1Oi = item.topCalls?.[0]?.scoreFormatted || formatOI(item.topCalls?.[0]?.oi);
     const r2Oi = item.topCalls?.[1]?.scoreFormatted || formatOI(item.topCalls?.[1]?.oi);
@@ -171,41 +182,51 @@ function renderTable() {
 
     return `
       <tr>
-        <td style="color: var(--text-muted); font-weight: 600;">${idx + 1}</td>
+        <td style="color: var(--text-muted); font-weight: 500;">${idx + 1}</td>
         <td>
-          <div class="sym-col">
+          <div class="sym-name">
             ${item.symbol} ${symTag}
           </div>
         </td>
         <td>
-          <span class="gap-pill">
+          <span class="gap-badge">
             ${item.pointGap > 0 ? `${item.pointGap} pts` : '--'}
             <span class="gap-pct">(${item.pointGapPct}%)</span>
           </span>
         </td>
         <td>
           <strong>${fmt(item.refPrice)}</strong>
-          <span style="font-size: 9px; color: var(--text-muted); display: block;">${refSrc}</span>
+          <span style="font-size: 10px; color: var(--text-muted); display: block;">${refSrc}</span>
         </td>
         <td>${fmt(item.spot)}</td>
-        <td class="atm-badge">${atmExcl}</td>
+        <td class="atm-txt">${atmExcl}</td>
         <td>
-          <span class="res-badge">${fmt(item.r1)}</span><span class="oi-sub">${r1Oi}</span> | 
-          <span class="res-badge">${fmt(item.r2)}</span><span class="oi-sub">${r2Oi}</span> | 
-          <span class="res-badge">${fmt(item.r3)}</span><span class="oi-sub">${r3Oi}</span>
+          <div class="level-stack">
+            <div class="level-line">
+              <span class="lvl-label res">R</span>
+              <span class="res-txt">${fmt(item.r1)}</span><span class="oi-sub">${r1Oi}</span>
+              <span class="lvl-sep">|</span>
+              <span class="res-txt">${fmt(item.r2)}</span><span class="oi-sub">${r2Oi}</span>
+              <span class="lvl-sep">|</span>
+              <span class="res-txt">${fmt(item.r3)}</span><span class="oi-sub">${r3Oi}</span>
+            </div>
+            <div class="level-line">
+              <span class="lvl-label sup">S</span>
+              <span class="sup-txt">${fmt(item.s1)}</span><span class="oi-sub">${s1Oi}</span>
+              <span class="lvl-sep">|</span>
+              <span class="sup-txt">${fmt(item.s2)}</span><span class="oi-sub">${s2Oi}</span>
+              <span class="lvl-sep">|</span>
+              <span class="sup-txt">${fmt(item.s3)}</span><span class="oi-sub">${s3Oi}</span>
+            </div>
+          </div>
         </td>
         <td>
-          <span class="sup-badge">${fmt(item.s1)}</span><span class="oi-sub">${s1Oi}</span> | 
-          <span class="sup-badge">${fmt(item.s2)}</span><span class="oi-sub">${s2Oi}</span> | 
-          <span class="sup-badge">${fmt(item.s3)}</span><span class="oi-sub">${s3Oi}</span>
+          <span style="color: var(--sup-color); font-weight: 500;">+${item.upsideGap}</span> / 
+          <span style="color: var(--res-color); font-weight: 500;">-${item.downsideGap}</span>
         </td>
         <td>
-          <span style="color: #66bb6a; font-weight: 600;">▲ +${item.upsideGap}</span> / 
-          <span style="color: #ef5350; font-weight: 600;">▼ -${item.downsideGap}</span>
-        </td>
-        <td>
-          <a href="${tvUrl}" target="_blank" class="tv-link" title="Open ${item.symbol} on TradingView">
-            Chart ↗
+          <a href="${tvUrl}" target="_blank" class="chart-btn" title="Open ${item.symbol} on TradingView">
+            Chart
           </a>
         </td>
       </tr>
@@ -219,14 +240,11 @@ async function scanAllWatchlist() {
   isScanning = true;
 
   const btn = document.getElementById('scanAllBtn');
-  const pill = document.getElementById('statusPill');
   const progressContainer = document.getElementById('progressContainer');
   const progressBar = document.getElementById('progressBar');
 
   btn.disabled = true;
   btn.textContent = 'Scanning...';
-  pill.textContent = 'Scanning...';
-  pill.style.background = '#ff9800';
   progressContainer.style.display = 'block';
   progressBar.style.width = '0%';
 
@@ -234,7 +252,6 @@ async function scanAllWatchlist() {
     const list = store.customWatchlist || DEFAULT_WATCHLIST;
     const settings = store.oiSettings || {};
 
-    // Override settings from toolbar if changed
     const activeSettings = {
       ...settings,
       refPriceSource: document.getElementById('refPriceSourceSelect').value,
@@ -250,7 +267,7 @@ async function scanAllWatchlist() {
       const symbol = list[i].trim().toUpperCase();
       if (!symbol) continue;
 
-      pill.textContent = `Scanning [${i + 1}/${total}] ${symbol}`;
+      btn.textContent = `Scanning ${i + 1}/${total}...`;
       progressBar.style.width = `${Math.round(((i + 1) / total) * 100)}%`;
 
       try {
@@ -259,10 +276,9 @@ async function scanAllWatchlist() {
             if (res?.success && res.data) {
               const enriched = enrichStockData(res.data);
               scannedData.push(enriched);
-              updateKpiCards(scannedData);
+              updateCarousel(scannedData);
               renderTable();
             }
-            // Gentle pause between calls to respect NSE rate limits
             setTimeout(resolve, 350);
           });
         });
@@ -272,17 +288,16 @@ async function scanAllWatchlist() {
     }
 
     // Save scan cache
+    const scanTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     chrome.storage.local.set({
       scannerCache: scannedData,
-      scannerLastTime: new Date().toLocaleTimeString()
+      scannerLastTime: scanTime
     });
 
     isScanning = false;
     btn.disabled = false;
-    btn.textContent = '⚡ Scan All Watchlist';
-    pill.textContent = 'Complete';
-    pill.style.background = '#26a69a';
-    document.getElementById('statScannedTime').textContent = `Scanned at ${new Date().toLocaleTimeString()}`;
+    btn.textContent = 'Scan Watchlist';
+    document.getElementById('lastUpdatedBadge').textContent = `Updated at ${scanTime}`;
     setTimeout(() => {
       progressContainer.style.display = 'none';
     }, 1500);
@@ -318,7 +333,7 @@ function exportCsv() {
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `NSE_OI_Point_Gap_Scanner_${new Date().toISOString().slice(0,10)}.csv`);
+  link.setAttribute('download', `NSE_OI_Scanner_${new Date().toISOString().slice(0,10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -328,23 +343,26 @@ function exportCsv() {
 const modal = document.getElementById('watchlistModal');
 const textarea = document.getElementById('watchlistTextarea');
 
-document.getElementById('openWatchlistBtn').addEventListener('click', () => {
+function openWatchlist() {
   chrome.storage.local.get(['customWatchlist'], (res) => {
     const list = res.customWatchlist || DEFAULT_WATCHLIST;
     textarea.value = list.join(', ');
     modal.style.display = 'flex';
   });
-});
+}
 
-document.getElementById('cancelWatchlistBtn').addEventListener('click', () => {
+document.getElementById('openWatchlistBtn')?.addEventListener('click', openWatchlist);
+document.getElementById('navWatchlist')?.addEventListener('click', openWatchlist);
+
+document.getElementById('cancelWatchlistBtn')?.addEventListener('click', () => {
   modal.style.display = 'none';
 });
 
-document.getElementById('resetWatchlistBtn').addEventListener('click', () => {
+document.getElementById('resetWatchlistBtn')?.addEventListener('click', () => {
   textarea.value = DEFAULT_WATCHLIST.join(', ');
 });
 
-document.getElementById('saveWatchlistBtn').addEventListener('click', () => {
+document.getElementById('saveWatchlistBtn')?.addEventListener('click', () => {
   const raw = textarea.value;
   const list = raw
     .split(/[\n,]+/)
@@ -354,29 +372,107 @@ document.getElementById('saveWatchlistBtn').addEventListener('click', () => {
   const unique = Array.from(new Set(list));
   chrome.storage.local.set({ customWatchlist: unique }, () => {
     modal.style.display = 'none';
-    document.getElementById('statTracked').textContent = unique.length;
-    alert(`Saved ${unique.length} symbols to watchlist. Click "Scan All" to analyze!`);
+    const footerText = document.getElementById('trackedFooterText');
+    if (footerText) footerText.textContent = `${unique.length} Symbols Live`;
+    const countBadge = document.getElementById('trackedSidebarCount');
+    if (countBadge) countBadge.textContent = String(unique.length);
+    alert(`Saved ${unique.length} symbols to watchlist.`);
   });
 });
 
+// Sidebar Collapsible Toggle
+const sidebar = document.getElementById('sidebar');
+const collapseBtn = document.getElementById('collapseBtn');
+const sidebarBrand = document.querySelector('.sidebar-brand');
+
+function toggleSidebar() {
+  sidebar?.classList.toggle('collapsed');
+  localStorage.setItem('sidebar_collapsed', sidebar?.classList.contains('collapsed'));
+}
+
+collapseBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleSidebar();
+});
+
+sidebarBrand?.addEventListener('click', () => {
+  if (sidebar?.classList.contains('collapsed')) {
+    toggleSidebar();
+  }
+});
+
+// Restore saved sidebar collapsed state
+if (localStorage.getItem('sidebar_collapsed') === 'true') {
+  sidebar.classList.add('collapsed');
+}
+
+// Sidebar action links
+document.getElementById('navScan')?.addEventListener('click', scanAllWatchlist);
+document.getElementById('navExport')?.addEventListener('click', exportCsv);
+document.getElementById('navWatchlist')?.addEventListener('click', () => {
+  document.getElementById('openWatchlistBtn')?.click();
+});
+document.getElementById('navRankings')?.addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
 // Event Listeners for Filters & Sort
-document.getElementById('searchInput').addEventListener('input', renderTable);
-document.getElementById('categoryFilter').addEventListener('change', renderTable);
-document.getElementById('sortBySelect').addEventListener('change', renderTable);
-document.getElementById('gapThreshold').addEventListener('change', renderTable);
+document.getElementById('searchInput')?.addEventListener('input', renderTable);
+document.getElementById('categoryFilter')?.addEventListener('change', renderTable);
+document.getElementById('sortBySelect')?.addEventListener('change', renderTable);
+document.getElementById('gapThreshold')?.addEventListener('change', renderTable);
 
-document.getElementById('refPriceSourceSelect').addEventListener('change', scanAllWatchlist);
-document.getElementById('rankModeSelect').addEventListener('change', scanAllWatchlist);
-document.getElementById('dataBasisSelect').addEventListener('change', scanAllWatchlist);
-document.getElementById('excludeAtmCheck').addEventListener('change', scanAllWatchlist);
+document.getElementById('refPriceSourceSelect')?.addEventListener('change', scanAllWatchlist);
+document.getElementById('rankModeSelect')?.addEventListener('change', scanAllWatchlist);
+document.getElementById('dataBasisSelect')?.addEventListener('change', scanAllWatchlist);
+document.getElementById('excludeAtmCheck')?.addEventListener('change', scanAllWatchlist);
 
-document.getElementById('scanAllBtn').addEventListener('click', scanAllWatchlist);
-document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+document.getElementById('scanAllBtn')?.addEventListener('click', scanAllWatchlist);
+document.getElementById('exportCsvBtn')?.addEventListener('click', exportCsv);
+
+// Theme Toggle Switch (From Uiverse.io by JustCode14)
+const themeCheckbox = document.getElementById('themeToggleCheckbox');
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  if (themeCheckbox) {
+    themeCheckbox.checked = (theme === 'light');
+  }
+  const themeBtn = document.getElementById('themeToggleBtn');
+  if (themeBtn) {
+    themeBtn.textContent = theme === 'dark' ? 'Light' : 'Dark';
+  }
+}
+
+themeCheckbox?.addEventListener('change', () => {
+  const next = themeCheckbox.checked ? 'light' : 'dark';
+  applyTheme(next);
+  chrome.storage.local.set({ themeMode: next });
+});
+
+// Color Scheme Palette Pickers
+document.querySelectorAll('.palette-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const color = btn.getAttribute('data-color');
+    if (color) {
+      document.documentElement.setAttribute('data-accent', color);
+      chrome.storage.local.set({ accentColor: color });
+    }
+  });
+});
 
 // Initialize on Load
-chrome.storage.local.get(['customWatchlist', 'scannerCache', 'scannerLastTime', 'oiSettings'], (res) => {
+chrome.storage.local.get(['customWatchlist', 'scannerCache', 'scannerLastTime', 'oiSettings', 'themeMode', 'accentColor'], (res) => {
+  // Theme & Accent setup (Default: dark, monochrome)
+  const theme = res.themeMode || 'dark';
+  const accent = res.accentColor || 'mono';
+  applyTheme(theme);
+  document.documentElement.setAttribute('data-accent', accent);
+
   const list = res.customWatchlist || DEFAULT_WATCHLIST;
-  document.getElementById('statTracked').textContent = list.length;
+  const footerText = document.getElementById('trackedFooterText');
+  if (footerText) footerText.textContent = `${list.length} Symbols Live`;
+  const countBadge = document.getElementById('trackedSidebarCount');
+  if (countBadge) countBadge.textContent = String(list.length);
 
   if (res.oiSettings) {
     if (res.oiSettings.refPriceSource) document.getElementById('refPriceSourceSelect').value = res.oiSettings.refPriceSource;
@@ -388,9 +484,11 @@ chrome.storage.local.get(['customWatchlist', 'scannerCache', 'scannerLastTime', 
   if (res.scannerCache && res.scannerCache.length > 0) {
     scannedData = res.scannerCache;
     if (res.scannerLastTime) {
-      document.getElementById('statScannedTime').textContent = `Cached from ${res.scannerLastTime}`;
+      document.getElementById('lastUpdatedBadge').textContent = `Updated at ${res.scannerLastTime}`;
     }
-    updateKpiCards(scannedData);
+    updateCarousel(scannedData);
     renderTable();
+  } else {
+    startCarouselAutoRotate();
   }
 });

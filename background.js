@@ -34,9 +34,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return true;
     }
 
+    const extra = msg.chartOpenPrice ? { chartOpenPrice: Number(msg.chartOpenPrice) } : {};
+
     chrome.storage.local.get(['oiSettings'], (store) => {
       const settings = Object.assign({}, DEFAULT_SETTINGS, store.oiSettings || {});
-      getNSEOptionLevels(symbol, settings)
+      getNSEOptionLevels(symbol, settings, extra)
         .then((data) => {
           chrome.storage.local.set({ activeOiData: data });
           sendResponse({ success: true, data });
@@ -94,8 +96,11 @@ function formatOI(num) {
 }
 
 // Score function matching oi_fetch.py: score_of(c, p, mode)
-function scoreOf(c, p, mode, isAbove) {
+function scoreOf(c, p, mode, isAbove, dataBasis = 'total') {
   if (mode === 'max') {
+    if (dataBasis === 'change') {
+      return Math.abs(c) >= Math.abs(p) ? c : p;
+    }
     return Math.max(c, p);
   }
   if (mode === 'call') {
@@ -109,6 +114,10 @@ function scoreOf(c, p, mode, isAbove) {
     return isAbove ? c : p;
   }
   // Default mode 'total': Call + Put total OI
+  if (dataBasis === 'change') {
+    // When measuring net change activity across both sides, sum magnitudes
+    return Math.abs(c) + Math.abs(p);
+  }
   return c + p;
 }
 
@@ -142,15 +151,18 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     refPrice = Number(customRefPrice);
     effectiveSource = 'custom';
   } else if (refPriceSource === 'prev_open') {
-    if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen))) {
+    if (priceInfo?.chartOpenPrice && !isNaN(Number(priceInfo.chartOpenPrice))) {
+      refPrice = Number(priceInfo.chartOpenPrice);
+      effectiveSource = 'chart_open';
+    } else if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen))) {
       refPrice = Number(priceInfo.prevOpen);
       effectiveSource = 'prev_open';
-    } else if (priceInfo?.prevClose && !isNaN(Number(priceInfo.prevClose))) {
-      refPrice = Number(priceInfo.prevClose);
-      effectiveSource = 'prev_close_fallback';
     } else if (priceInfo?.todayOpen && !isNaN(Number(priceInfo.todayOpen))) {
       refPrice = Number(priceInfo.todayOpen);
       effectiveSource = 'today_open_fallback';
+    } else if (priceInfo?.prevClose && !isNaN(Number(priceInfo.prevClose))) {
+      refPrice = Number(priceInfo.prevClose);
+      effectiveSource = 'prev_close_fallback';
     } else {
       effectiveSource = 'spot_fallback';
     }
@@ -158,6 +170,9 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     if (priceInfo?.todayOpen && !isNaN(Number(priceInfo.todayOpen))) {
       refPrice = Number(priceInfo.todayOpen);
       effectiveSource = 'today_open';
+    } else if (priceInfo?.chartOpenPrice && !isNaN(Number(priceInfo.chartOpenPrice))) {
+      refPrice = Number(priceInfo.chartOpenPrice);
+      effectiveSource = 'chart_open';
     } else if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen))) {
       refPrice = Number(priceInfo.prevOpen);
       effectiveSource = 'prev_open_fallback';
@@ -216,7 +231,7 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     const c = dataBasis === 'change' ? item.ceChgOi : item.ceOi;
     const p = dataBasis === 'change' ? item.peChgOi : item.peOi;
     const isAbove = s >= refPrice;
-    const score = scoreOf(c, p, rankMode, isAbove);
+    const score = scoreOf(c, p, rankMode, isAbove, dataBasis);
 
     return {
       price: s,
@@ -252,13 +267,20 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     belowCandidates = scored.filter((x) => x.strike < refPrice);
   }
 
-  // Pick top N ranked by score descending (highest first)
+  // Pick top N ranked by score descending
+  // When dataBasis === 'change', rank by absolute magnitude (Math.abs(score))
+  // so that strikes with massive institutional activity (fresh build-up or unwinding)
+  // are properly prioritized (matching Sensibull bar heights).
+  const sortFn = dataBasis === 'change'
+    ? (a, b) => Math.abs(b.score) - Math.abs(a.score)
+    : (a, b) => b.score - a.score;
+
   const topAbove = [...aboveCandidates]
-    .sort((a, b) => b.score - a.score)
+    .sort(sortFn)
     .slice(0, topN);
 
   const topBelow = [...belowCandidates]
-    .sort((a, b) => b.score - a.score)
+    .sort(sortFn)
     .slice(0, topN);
 
   // For chart visualization & standard S&R ordering:
@@ -432,7 +454,7 @@ async function getSymbolPriceInfo(domain, symbol) {
   return info;
 }
 
-async function getNSEOptionLevels(symbol, settings) {
+async function getNSEOptionLevels(symbol, settings, extraPriceInfo = {}) {
   let result = null;
   let lastErr = null;
 
@@ -459,6 +481,10 @@ async function getNSEOptionLevels(symbol, settings) {
   try {
     priceInfo = await getSymbolPriceInfo(result.domain || 'www.nseindia.com', symbol);
   } catch (e) {}
+
+  if (extraPriceInfo && typeof extraPriceInfo === 'object') {
+    Object.assign(priceInfo, extraPriceInfo);
+  }
 
   // Cache raw response with price info
   rawChainCache.set(symbol, {

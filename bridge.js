@@ -93,6 +93,18 @@ function readActiveTicker() {
   return null;
 }
 
+function readChartOpenPrice() {
+  try {
+    const text = document.querySelector('[data-name="legend-series-item"], [class*="valuesWrapper"]')?.textContent || '';
+    const match = text.match(/O\s*([0-9,]+(?:\.[0-9]+)?)/i);
+    if (match && match[1]) {
+      const val = parseFloat(match[1].replace(/,/g, ''));
+      if (!isNaN(val) && val > 0) return val;
+    }
+  } catch (e) {}
+  return null;
+}
+
 function watchChartTicker() {
   if (isFetching) return;
   const ticker = readActiveTicker();
@@ -102,7 +114,8 @@ function watchChartTicker() {
   isFetching = true;
   window.postMessage({ type: 'OI_STATUS', text: `Loading ${ticker} NSE OI...` }, '*');
 
-  chrome.runtime.sendMessage({ type: 'FETCH_OI', symbol: ticker }, (res) => {
+  const chartOpenPrice = readChartOpenPrice();
+  chrome.runtime.sendMessage({ type: 'FETCH_OI', symbol: ticker, chartOpenPrice }, (res) => {
     isFetching = false;
     if (res?.success && res.data) {
       window.postMessage({ type: 'OI_DATA', payload: res.data }, '*');

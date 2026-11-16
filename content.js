@@ -99,25 +99,25 @@
 
     // Off-screen ABOVE current zoom
     if (y < 0) {
-      ctx.font = 'bold 10px system-ui, sans-serif';
-      const txt = `▲ ${label}: ${price}`;
-      const bw = ctx.measureText(txt).width + 10;
+      ctx.font = '500 10.5px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif';
+      const txt = `^ ${label}: ${price}`;
+      const bw = ctx.measureText(txt).width + 14;
       ctx.fillStyle = color;
-      ctx.fillRect(w - bw - 10, 8, bw, 16);
+      ctx.fillRect(w - bw - 10, 8, bw, 18);
       ctx.fillStyle = '#fff';
-      ctx.fillText(txt, w - bw - 5, 19);
+      ctx.fillText(txt, w - bw - 3, 20);
       return;
     }
 
     // Off-screen BELOW current zoom
     if (y > h) {
-      ctx.font = 'bold 10px system-ui, sans-serif';
-      const txt = `▼ ${label}: ${price}`;
-      const bw = ctx.measureText(txt).width + 10;
+      ctx.font = '500 10.5px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif';
+      const txt = `v ${label}: ${price}`;
+      const bw = ctx.measureText(txt).width + 14;
       ctx.fillStyle = color;
-      ctx.fillRect(w - bw - 10, h - 24, bw, 16);
+      ctx.fillRect(w - bw - 10, h - 26, bw, 18);
       ctx.fillStyle = '#fff';
-      ctx.fillText(txt, w - bw - 5, h - 13);
+      ctx.fillText(txt, w - bw - 3, h - 13);
       return;
     }
 
@@ -133,22 +133,22 @@
     // Left badge with Strike & OI count
     ctx.setLineDash([]);
     const oiLabel = isAtm ? ' [EXCL]' : (typeof oiCount === 'string' ? ` (${oiCount})` : formatLevelOI(oiCount));
-    const leftText = `${label} • ${price}${oiLabel}`;
-    ctx.font = 'bold 11px system-ui, sans-serif';
+    const leftText = `${label} - ${price}${oiLabel}`;
+    ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif';
     const tw = ctx.measureText(leftText).width;
 
     ctx.fillStyle = color;
-    ctx.fillRect(10, y - 16, tw + 10, 15);
+    ctx.fillRect(10, y - 18, tw + 14, 18);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(leftText, 15, y - 5);
+    ctx.fillText(leftText, 17, y - 5);
 
     // Right price pill flush with the Y-axis
     const rightText = String(price);
-    const rw = ctx.measureText(rightText).width + 10;
+    const rw = ctx.measureText(rightText).width + 14;
     ctx.fillStyle = color;
-    ctx.fillRect(w - rw, y - 8, rw, 16);
+    ctx.fillRect(w - rw, y - 9, rw, 18);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(rightText, w - rw + 5, y + 4);
+    ctx.fillText(rightText, w - rw + 7, y + 4);
   }
 
   function render() {
@@ -171,15 +171,15 @@
     ctx.clearRect(0, 0, overlay.width, overlay.height);
 
     // Bottom-left status pill
-    ctx.font = 'bold 11px system-ui, sans-serif';
-    const pw = ctx.measureText(statusText).width + 14;
-    ctx.fillStyle = 'rgba(19, 23, 34, 0.92)';
-    ctx.fillRect(10, rect.height - 46, pw, 22);
+    ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif';
+    const pw = ctx.measureText(statusText).width + 20;
+    ctx.fillStyle = 'rgba(19, 23, 34, 0.94)';
+    ctx.fillRect(10, rect.height - 48, pw, 24);
     ctx.strokeStyle = '#2962ff';
     ctx.lineWidth = 1;
-    ctx.strokeRect(10, rect.height - 46, pw, 22);
+    ctx.strokeRect(10, rect.height - 48, pw, 24);
     ctx.fillStyle = '#d1d4dc';
-    ctx.fillText(statusText, 17, rect.height - 31);
+    ctx.fillText(statusText, 18, rect.height - 32);
 
     if (!oiData) return;
 
