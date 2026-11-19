@@ -566,6 +566,66 @@
       color: var(--text-muted);
     }
 
+    .version-badge {
+      font-size: 10px;
+      padding: 1.5px 6px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .dash-update-banner {
+      background: var(--bg-card);
+      border: 1px solid rgba(37, 99, 235, 0.4);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .dash-update-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dash-update-left code {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    .dash-update-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .update-pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #2563eb;
+      box-shadow: 0 0 6px #2563eb;
+      display: inline-block;
+      animation: pulseUpdate 1.8s infinite;
+    }
+
+    @keyframes pulseUpdate {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.7; }
+    }
+
     .top-actions {
       display: flex;
       align-items: center;
@@ -1389,6 +1449,7 @@
         <div class="page-heading">
           <h1>Option Chain Point Gap Rankings</h1>
           <span class="live-badge" id="lastUpdatedBadge">Ready to scan</span>
+          <span class="version-badge" id="dashVersionBadge" title="Installed Version">v1.1</span>
         </div>
 
         <div class="top-actions">
@@ -1419,6 +1480,18 @@
           </label>
 
           <button class="btn-primary" id="scanAllBtn">Scan Watchlist</button>
+        </div>
+      </div>
+
+      <!-- Live GitHub Update Banner in Dashboard -->
+      <div id="dashUpdateBanner" class="dash-update-banner" style="display: none;">
+        <div class="dash-update-left">
+          <span class="update-pulse-dot"></span>
+          <span>Update <strong id="dashRemoteVer">v1.2</strong> available on GitHub! Run <code>update.bat</code> then reload.</span>
+        </div>
+        <div class="dash-update-actions">
+          <button id="dashReloadBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;">Reload Scanner</button>
+          <button id="dashDismissBannerBtn" style="background:transparent; border:none; cursor:pointer; color:var(--text-muted); font-size:14px; line-height:1;">&times;</button>
         </div>
       </div>
 
@@ -1520,6 +1593,7 @@
             <div class="select">
               <select id="refPriceSourceSelect">
                 <option value="prev_open">Previous Day Open</option>
+                <option value="pre_open">Pre-Market Open</option>
                 <option value="today_open">Today's Open</option>
                 <option value="spot">Live Spot Price</option>
               </select>

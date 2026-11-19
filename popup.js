@@ -10,10 +10,14 @@ const DEFAULT_SETTINGS = {
   excludeAtm: true,
   lineStyle: 'solid',
   labelPosition: 'right',
-  lineScope: 'today'
+  lineScope: 'candles',
+  overlayScope: 'tab',
+  showOnChartToggle: true
 };
 
 let currentPineLine = '';
+let activeTradingViewTabId = null;
+let currentTabVisible = false; // Default: OFF (only enabled on selected tab)
 
 function formatOI(num) {
   if (num === null || num === undefined || isNaN(num)) return '0';
@@ -36,12 +40,15 @@ function render(d) {
   document.getElementById('modeBadge').textContent = `${mode} • ${basis}`;
 
   const srcLabel = (d.refPriceSource || 'spot').replace(/_/g, ' ').toUpperCase();
-  const refText = d.refPrice ? `Ref (${srcLabel}): ${d.refPrice}` : `Spot: ${d.spot || '--'}`;
-  const atmText = d.atmStrike
-    ? ` | ATM: ${d.atmStrike}${d.excludedAtm ? ' [EXCL]' : ''}`
-    : '';
+  const refDisplay = d.refPrice ? `Ref: <strong>${d.refPrice}</strong> (${srcLabel})` : `Spot: <strong>${d.spot || '--'}</strong>`;
+  const spotDisplay = `Spot: <strong>${d.spot || '--'}</strong>`;
+  const expDisplay = `Exp: <strong>${d.expiry || '--'}</strong>`;
 
-  document.getElementById('meta').textContent = `${refText}${atmText} | Spot: ${d.spot || '--'} | Expiry: ${d.expiry || '--'}`;
+  document.getElementById('meta').innerHTML = `
+    <span>${refDisplay}</span>
+    <span>${spotDisplay}</span>
+    <span>${expDisplay}</span>
+  `;
 
   currentPineLine = d.pineLine || `${symbol} | ${d.r1 || ''},${d.r2 || ''},${d.r3 || ''} | ${d.s1 || ''},${d.s2 || ''},${d.s3 || ''}`;
 
@@ -68,79 +75,102 @@ function render(d) {
     return `
       <div class="matrix-card ${type}">
         <div class="card-head">
-          <span class="card-badge ${type}">${item.lbl}</span>
-          <span class="card-strike">${val}</span>
+          <span class="card-tag ${type}">${item.lbl}</span>
+          <span class="card-oi">${scoreText}</span>
         </div>
-        <div class="card-meta">
-          <span class="card-score">${scoreText || '--'}</span>
-          <span class="card-oi">${oiText}</span>
+        <div class="card-body-row">
+          <span class="card-price">${val}</span>
+          <span class="card-sub ${type}">${oiText}</span>
         </div>
       </div>
     `;
   }
 
-  const atmHtml = d.excludedAtm ? `
-    <div class="atm-strip">
-      <span class="atm-strip-badge">ATM</span>
-      <span class="atm-strip-strike">${d.excludedAtm}</span>
-      <span class="atm-strip-note">Excluded from S&amp;R (Pivot Anchor)</span>
-    </div>
-  ` : '';
+  const resHtml = resCards.map(c => renderCard(c, 'res')).join('');
+  const supHtml = supCards.map(c => renderCard(c, 'sup')).join('');
+
+  const atmOiBadge = d.atmOi
+    ? `<span class="atm-oi-badge">${d.basis === 'change' ? 'Δ ' : ''}${d.atmOi}</span>`
+    : '';
+  const atmSub = (d.atmCeOi || d.atmPeOi)
+    ? `<span class="atm-sub-oi">CE: ${d.atmCeOi || '--'} • PE: ${d.atmPeOi || '--'}</span>`
+    : '<span class="atm-sub-oi">Anchor Center</span>';
+
+  const atmStripHtml = (d.atmStrike || d.excludedAtm)
+    ? `<div class="atm-strip">
+         <div class="atm-strip-left">
+           <span class="atm-tag">ATM REF</span>
+           <span class="atm-val">${d.excludedAtm || d.atmStrike}</span>
+           ${atmOiBadge}
+         </div>
+         <div class="atm-strip-right">
+           ${atmSub}
+         </div>
+       </div>`
+    : '';
 
   document.getElementById('rows').innerHTML = `
-    <div class="matrix-section">
-      <div class="matrix-grid">
-        ${resCards.map(c => renderCard(c, 'res')).join('')}
-      </div>
-      ${atmHtml}
-      <div class="matrix-grid">
-        ${supCards.map(c => renderCard(c, 'sup')).join('')}
-      </div>
-    </div>
+    <div class="matrix-grid">${resHtml}</div>
+    ${atmStripHtml}
+    <div class="matrix-grid">${supHtml}</div>
   `;
 }
 
+// Light / Dark Theme toggle
 const themeToggleCheckbox = document.getElementById('themeToggleCheckbox');
 
 function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  if (themeToggleCheckbox) {
-    themeToggleCheckbox.checked = (theme === 'light');
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    if (themeToggleCheckbox) themeToggleCheckbox.checked = true;
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    if (themeToggleCheckbox) themeToggleCheckbox.checked = false;
   }
 }
 
+// Eye toggle icon state
 function updateEyeIcon(visible) {
   const btn = document.getElementById('toggleLinesBtn');
-  const open = document.getElementById('eyeOpenIcon');
-  const closed = document.getElementById('eyeClosedIcon');
-  if (!btn || !open || !closed) return;
+  const openIcon = document.getElementById('eyeOpenIcon');
+  const closedIcon = document.getElementById('eyeClosedIcon');
+  const scope = document.getElementById('overlayScopeSelect')?.value || 'tab';
+  const scopeLabel = scope === 'tab' ? 'This tab' : 'All tabs';
+
+  if (!btn || !openIcon || !closedIcon) return;
+
   if (visible) {
     btn.classList.add('active');
-    btn.classList.remove('muted');
-    btn.title = 'Lines visible on chart (Click to hide)';
-    open.style.display = 'block';
-    closed.style.display = 'none';
+    btn.title = `Lines visible (${scopeLabel}) - Click to hide`;
+    openIcon.style.display = 'block';
+    closedIcon.style.display = 'none';
   } else {
     btn.classList.remove('active');
-    btn.classList.add('muted');
-    btn.title = 'Lines hidden on chart (Click to show)';
-    open.style.display = 'none';
-    closed.style.display = 'block';
+    btn.title = `Lines hidden (${scopeLabel}) - Click to enable`;
+    openIcon.style.display = 'none';
+    closedIcon.style.display = 'block';
   }
 }
 
-// Load initial state
-chrome.storage.local.get(['activeOiData', 'overlayVisible', 'oiSettings', 'themeMode', 'accentColor'], (res) => {
-  // Theme & Accent setup
+// Reliable active tab query across popups and multiple browser windows
+function getActiveTab(callback) {
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+    if (tabs && tabs.length > 0 && tabs[0].id) {
+      callback(tabs[0]);
+    } else {
+      chrome.tabs.query({ active: true, currentWindow: true }, (fallbackTabs) => {
+        callback(fallbackTabs?.[0] || null);
+      });
+    }
+  });
+}
+
+// Load initial state & bind to active tab
+chrome.storage.local.get(['oiSettings', 'themeMode', 'accentColor', 'activeOiData'], (res) => {
   const theme = res.themeMode || 'dark';
   const accent = res.accentColor || 'mono';
   applyTheme(theme);
   document.documentElement.setAttribute('data-accent', accent);
-
-  if (res.activeOiData) {
-    render(res.activeOiData);
-  }
-  updateEyeIcon(res.overlayVisible !== false);
 
   const settings = Object.assign({}, DEFAULT_SETTINGS, res.oiSettings || {});
   document.getElementById('rankModeSelect').value = settings.rankMode || 'call_put';
@@ -148,7 +178,9 @@ chrome.storage.local.get(['activeOiData', 'overlayVisible', 'oiSettings', 'theme
   document.getElementById('strikesRangeSelect').value = String(settings.strikesEachSide || 5);
   document.getElementById('lineStyleSelect').value = settings.lineStyle || 'solid';
   document.getElementById('labelPosSelect').value = settings.labelPosition || 'right';
-  document.getElementById('lineScopeSelect').value = settings.lineScope || 'today';
+  document.getElementById('lineScopeSelect').value = settings.lineScope || 'candles';
+  document.getElementById('overlayScopeSelect').value = settings.overlayScope || 'tab';
+  document.getElementById('showOnChartToggleCheck').checked = settings.showOnChartToggle !== false;
 
   const refSrc = settings.refPriceSource || 'prev_open';
   document.getElementById('refPriceSelect').value = refSrc;
@@ -157,6 +189,33 @@ chrome.storage.local.get(['activeOiData', 'overlayVisible', 'oiSettings', 'theme
     document.getElementById('customPriceInput').value = settings.customRefPrice;
   }
   document.getElementById('excludeAtmCheck').checked = settings.excludeAtm !== false;
+
+  // Query active TradingView tab for tab-isolated status
+  getActiveTab((tab) => {
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'GET_TAB_OI_STATUS' }, (tabRes) => {
+        if (!chrome.runtime.lastError && tabRes && tabRes.isTradingView) {
+          activeTradingViewTabId = tab.id;
+          currentTabVisible = tabRes.visible === true;
+          updateEyeIcon(currentTabVisible);
+
+          if (tabRes.data) {
+            render(tabRes.data);
+            return;
+          }
+        }
+
+        // Tab is not yet enabled or not TradingView: default to OFF
+        updateEyeIcon(false);
+        if (res.activeOiData) {
+          render(res.activeOiData);
+        }
+      });
+    } else {
+      updateEyeIcon(false);
+      if (res.activeOiData) render(res.activeOiData);
+    }
+  });
 });
 
 // Theme and Accent event listeners
@@ -178,11 +237,11 @@ document.querySelectorAll('.accent-dot').forEach((dot) => {
 
 // Listen for updates from background
 chrome.storage.onChanged.addListener((changes) => {
-  if (changes.activeOiData) {
+  if (changes.activeOiData && !activeTradingViewTabId) {
     render(changes.activeOiData.newValue);
   }
-  if (changes.overlayVisible) {
-    updateEyeIcon(changes.overlayVisible.newValue !== false);
+  if (changes.globalOverlayVisible && document.getElementById('overlayScopeSelect')?.value === 'all') {
+    updateEyeIcon(changes.globalOverlayVisible.newValue === true);
   }
 });
 
@@ -201,7 +260,9 @@ function updateSettings() {
     excludeAtm: document.getElementById('excludeAtmCheck').checked,
     lineStyle: document.getElementById('lineStyleSelect').value,
     labelPosition: document.getElementById('labelPosSelect').value,
-    lineScope: document.getElementById('lineScopeSelect').value
+    lineScope: document.getElementById('lineScopeSelect').value,
+    overlayScope: document.getElementById('overlayScopeSelect').value,
+    showOnChartToggle: document.getElementById('showOnChartToggleCheck').checked
   };
 
   chrome.storage.local.set({ oiSettings: newSettings }, () => {
@@ -220,6 +281,11 @@ document.getElementById('excludeAtmCheck').addEventListener('change', updateSett
 document.getElementById('lineStyleSelect').addEventListener('change', updateSettings);
 document.getElementById('labelPosSelect').addEventListener('change', updateSettings);
 document.getElementById('lineScopeSelect').addEventListener('change', updateSettings);
+document.getElementById('overlayScopeSelect').addEventListener('change', () => {
+  updateSettings();
+  updateEyeIcon(currentTabVisible);
+});
+document.getElementById('showOnChartToggleCheck').addEventListener('change', updateSettings);
 
 document.getElementById('refPriceSelect').addEventListener('change', (e) => {
   const isCustom = e.target.value === 'custom';
@@ -241,16 +307,59 @@ document.getElementById('customPriceInput').addEventListener('keydown', (e) => {
   }
 });
 
+// Toggle lines: controls strictly the active tab (or all tabs if selected)
 document.getElementById('toggleLinesBtn')?.addEventListener('click', () => {
-  chrome.storage.local.get(['overlayVisible'], (res) => {
-    const next = res.overlayVisible === false ? true : false;
-    chrome.storage.local.set({ overlayVisible: next });
-    updateEyeIcon(next);
-  });
+  const scope = document.getElementById('overlayScopeSelect')?.value || 'tab';
+
+  if (scope === 'tab') {
+    getActiveTab((tab) => {
+      const targetId = activeTradingViewTabId || tab?.id;
+      if (targetId) {
+        chrome.tabs.sendMessage(targetId, { type: 'TOGGLE_TAB_VISIBILITY' }, (res) => {
+          if (!chrome.runtime.lastError && res && typeof res.visible === 'boolean') {
+            currentTabVisible = res.visible;
+            updateEyeIcon(currentTabVisible);
+          } else {
+            // Content script was not ready or tab needs reload
+            const metaEl = document.getElementById('meta');
+            if (metaEl) {
+              metaEl.textContent = 'Please refresh this TradingView tab (F5) once to connect.';
+            }
+          }
+        });
+      }
+    });
+  } else {
+    // Global scope: explicitly broadcast to ALL tabs
+    chrome.storage.local.get(['globalOverlayVisible'], (res) => {
+      const next = res.globalOverlayVisible === true ? false : true;
+      chrome.storage.local.set({ globalOverlayVisible: next });
+      currentTabVisible = next;
+      updateEyeIcon(next);
+
+      chrome.tabs.query({}, (allTabs) => {
+        allTabs.forEach((t) => {
+          if (t.id) {
+            chrome.tabs.sendMessage(t.id, { type: 'SET_TAB_VISIBILITY', visible: next }, () => {
+              if (chrome.runtime.lastError) {}
+            });
+          }
+        });
+      });
+    });
+  }
 });
 
 document.getElementById('refreshBtn').addEventListener('click', () => {
   chrome.storage.local.set({ manualRefresh: Date.now() });
+  getActiveTab((tab) => {
+    const targetId = activeTradingViewTabId || tab?.id;
+    if (targetId) {
+      chrome.tabs.sendMessage(targetId, { type: 'REFRESH_TAB_OI' }, () => {
+        if (chrome.runtime.lastError) {}
+      });
+    }
+  });
   chrome.runtime.sendMessage({ type: 'RECALCULATE_OI' }, (res) => {
     if (res?.success && res.data) {
       render(res.data);
@@ -274,5 +383,78 @@ document.getElementById('copyPineBtn').addEventListener('click', () => {
     setTimeout(() => {
       btn.textContent = orig;
     }, 2000);
+  });
+});
+
+// GitHub Update Management in Popup
+const localVer = chrome.runtime.getManifest().version;
+const installedVerEl = document.getElementById('installedVerVal');
+if (installedVerEl) {
+  installedVerEl.textContent = `v${localVer}`;
+}
+
+chrome.storage.local.get(['updateInfo'], (res) => {
+  const info = res.updateInfo;
+  if (info?.hasUpdate) {
+    const banner = document.getElementById('updateBanner');
+    if (banner) {
+      banner.style.display = 'flex';
+      const tag = document.getElementById('updateVersionTag');
+      if (tag) tag.textContent = `v${info.remoteVersion}`;
+    }
+    const msg = document.getElementById('updateStatusMsg');
+    if (msg) {
+      msg.textContent = `Update v${info.remoteVersion} on GitHub! Run update.bat & reload.`;
+      msg.style.color = '#38bdf8';
+    }
+  }
+});
+
+// Dismiss banner
+document.getElementById('updateBannerDismissBtn')?.addEventListener('click', () => {
+  const banner = document.getElementById('updateBanner');
+  if (banner) banner.style.display = 'none';
+});
+
+// Reload Extension buttons
+document.getElementById('updateBannerReloadBtn')?.addEventListener('click', () => {
+  chrome.runtime.reload();
+});
+document.getElementById('manualReloadBtn')?.addEventListener('click', () => {
+  chrome.runtime.reload();
+});
+
+// Manual Check Update button
+document.getElementById('checkUpdateBtn')?.addEventListener('click', () => {
+  const btn = document.getElementById('checkUpdateBtn');
+  const msg = document.getElementById('updateStatusMsg');
+  if (!btn || !msg) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+  msg.textContent = 'Querying GitHub repository...';
+
+  chrome.runtime.sendMessage({ type: 'CHECK_UPDATES' }, (res) => {
+    btn.disabled = false;
+    btn.textContent = 'Check Update';
+    if (res?.success && res.updateInfo) {
+      const info = res.updateInfo;
+      if (info.hasUpdate) {
+        const banner = document.getElementById('updateBanner');
+        if (banner) {
+          banner.style.display = 'flex';
+          const tag = document.getElementById('updateVersionTag');
+          if (tag) tag.textContent = `v${info.remoteVersion}`;
+        }
+        msg.textContent = `Update v${info.remoteVersion} found! Run update.bat & reload.`;
+        msg.style.color = '#38bdf8';
+      } else {
+        msg.textContent = `Up to date (v${info.currentVersion}).`;
+        msg.style.color = 'var(--text-muted)';
+      }
+    } else {
+      msg.textContent = res?.error || 'Check failed. Verify connection.';
+      msg.style.color = '#ef5350';
+    }
   });
 });

@@ -1,14 +1,14 @@
 // content.js - Renders OI Levels directly onto the TradingView chart canvas
 (() => {
   let oiData = null;
-  let isVisible = true;
+  let isVisible = false; // Default: OFF (only displays when explicitly enabled on this tab)
   let statusText = 'Initializing NSE OI...';
 
   // Configurable appearance settings with user-preferred defaults
   let displaySettings = {
     lineStyle: 'solid',       // 'solid' | 'dashed'
     labelPosition: 'right',   // 'right' | 'left'
-    lineScope: 'today'        // 'today' | 'full'
+    lineScope: 'candles'      // 'candles' (Session Candles Only) | 'today' | 'full'
   };
 
   window.addEventListener('message', (e) => {
@@ -43,7 +43,11 @@
   overlay.style.position = 'fixed';
   overlay.style.pointerEvents = 'none';
   overlay.style.zIndex = '99999';
-  document.body.appendChild(overlay);
+  if (document.body) {
+    document.body.appendChild(overlay);
+  } else {
+    window.addEventListener('DOMContentLoaded', () => document.body?.appendChild(overlay), { once: true });
+  }
   const ctx = overlay.getContext('2d');
 
   function findMainChartCanvas() {
@@ -101,11 +105,11 @@
     return null;
   }
 
-  // Calculate the horizontal pixel coordinate where the current trading day's session begins
-  function getExactDayStartX() {
+  // Calculate the horizontal pixel range (startX to endX) for the current trading day's session
+  function getExactDayRange() {
     try {
       const col = window._exposed_chartWidgetCollection;
-      if (!col) return 0;
+      if (!col) return null;
 
       const widget =
         typeof col.activeChartWidget?.value === 'function'
@@ -115,17 +119,17 @@
             : (col.getAll?.()?.[0] || col._activeChartWidget));
 
       const model = widget?.model?.() || widget?._model;
-      if (!model) return 0;
+      if (!model) return null;
 
       const mainSeries = model.mainSeries?.() || model._mainSeries;
       const timeScale = model.timeScale?.() || widget.timeScale?.();
-      if (!mainSeries || !timeScale) return 0;
+      if (!mainSeries || !timeScale) return null;
 
       const bars = mainSeries.bars?.() || mainSeries._bars;
-      if (!bars) return 0;
+      if (!bars) return null;
 
       const lastIndex = typeof bars.lastIndex === 'function' ? bars.lastIndex() : bars.lastIndex;
-      if (lastIndex == null || isNaN(lastIndex)) return 0;
+      if (lastIndex == null || isNaN(lastIndex)) return null;
 
       const getBarTime = (bar) => {
         if (!bar) return null;
@@ -136,7 +140,7 @@
 
       const lastBar = typeof bars.valueAt === 'function' ? bars.valueAt(lastIndex) : (bars[lastIndex] || null);
       const lastTime = getBarTime(lastBar);
-      if (!lastTime) return 0;
+      if (!lastTime) return null;
 
       const lastDate = new Date(lastTime);
       const targetDay = lastDate.getDate();
@@ -161,13 +165,27 @@
       }
 
       if (typeof timeScale.indexToCoordinate === 'function') {
-        const coord = timeScale.indexToCoordinate(startBarIndex);
-        if (typeof coord === 'number' && !isNaN(coord)) {
-          return Math.max(0, coord);
+        const startCoord = timeScale.indexToCoordinate(startBarIndex);
+        const endCoord = timeScale.indexToCoordinate(lastIndex);
+
+        let barSpacing = 6;
+        if (typeof timeScale.barSpacing === 'function') {
+          barSpacing = timeScale.barSpacing();
+        } else if (typeof timeScale._barSpacing === 'number') {
+          barSpacing = timeScale._barSpacing;
+        }
+        const halfBar = Math.max(2, Math.round(barSpacing / 2));
+
+        if (typeof startCoord === 'number' && !isNaN(startCoord) &&
+            typeof endCoord === 'number' && !isNaN(endCoord)) {
+          return {
+            startX: Math.max(0, startCoord - halfBar),
+            endX: endCoord + halfBar + 2
+          };
         }
       }
     } catch (e) {}
-    return 0;
+    return null;
   }
 
   function formatLevelOI(num) {
@@ -180,20 +198,32 @@
     return ` (${sign}${abs} OI)`;
   }
 
-  function drawLevel(y, price, label, oiCount, color, w, h, isAtm = false, startX = 0) {
+  function drawLevel(y, price, label, oiCount, color, w, h, isAtm = false, lineStartX = 0, lineEndX = w) {
     if (typeof y !== 'number' || isNaN(y)) return;
 
     const lineStyle = displaySettings.lineStyle || 'solid';
     const labelPos = displaySettings.labelPosition || 'right';
+    const lineScope = displaySettings.lineScope || 'candles';
+
+    // Format OI badge text (including ATM reference line)
+    let oiLabel = '';
+    if (typeof oiCount === 'string' && oiCount.trim()) {
+      oiLabel = ` (${oiCount.trim()})`;
+    } else if (oiCount !== null && oiCount !== undefined && oiCount !== '' && !isNaN(oiCount)) {
+      oiLabel = formatLevelOI(oiCount);
+    }
+    const fullBadgeText = `${label} - ${price}${oiLabel}`;
+    ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif';
+    const bw = ctx.measureText(fullBadgeText).width + 16;
 
     // Off-screen ABOVE current zoom
     if (y < 0) {
       ctx.font = '500 10.5px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif';
       const txt = `^ ${label}: ${price}`;
-      const bw = ctx.measureText(txt).width + 14;
-      const bx = labelPos === 'left' ? 10 : (w - bw - 10);
+      const offBw = ctx.measureText(txt).width + 14;
+      const bx = labelPos === 'left' ? 10 : (w - offBw - 10);
       ctx.fillStyle = color;
-      ctx.fillRect(bx, 8, bw, 18);
+      ctx.fillRect(bx, 8, offBw, 18);
       ctx.fillStyle = '#fff';
       ctx.fillText(txt, bx + 7, 20);
       return;
@@ -203,20 +233,37 @@
     if (y > h) {
       ctx.font = '500 10.5px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif';
       const txt = `v ${label}: ${price}`;
-      const bw = ctx.measureText(txt).width + 14;
-      const bx = labelPos === 'left' ? 10 : (w - bw - 10);
+      const offBw = ctx.measureText(txt).width + 14;
+      const bx = labelPos === 'left' ? 10 : (w - offBw - 10);
       ctx.fillStyle = color;
-      ctx.fillRect(bx, h - 26, bw, 18);
+      ctx.fillRect(bx, h - 26, offBw, 18);
       ctx.fillStyle = '#fff';
       ctx.fillText(txt, bx + 7, h - 13);
       return;
     }
 
-    // Format OI badge text
-    const oiLabel = isAtm ? ' [EXCL]' : (typeof oiCount === 'string' ? ` (${oiCount})` : formatLevelOI(oiCount));
-    const fullBadgeText = `${label} - ${price}${oiLabel}`;
-    ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif';
-    const bw = ctx.measureText(fullBadgeText).width + 16;
+    // Determine badge positioning and line end coordinate
+    let badgeX;
+    let actualLineEndX = lineEndX;
+
+    if (labelPos === 'right') {
+      if (lineScope === 'candles' && lineEndX < w - 16) {
+        // Stop line at end of session and attach badge directly to the line end
+        badgeX = lineEndX + 4;
+        if (badgeX + bw > w - 4) {
+          badgeX = w - bw - 4;
+          actualLineEndX = Math.min(lineEndX, badgeX);
+        } else {
+          actualLineEndX = badgeX;
+        }
+      } else {
+        // Line extends to right edge; badge is flush on right
+        badgeX = w - bw - 4;
+      }
+    } else {
+      // Left-side badge
+      badgeX = Math.max(10, lineStartX);
+    }
 
     // Horizontal line: solid (or dashed if configured / ATM)
     ctx.beginPath();
@@ -228,35 +275,35 @@
     ctx.strokeStyle = color;
     ctx.lineWidth = isAtm ? 1.4 : 1.8;
 
-    // Draw line from startX (start of day) to right edge
-    ctx.moveTo(startX, y);
-    ctx.lineTo(w, y);
+    // Draw line from lineStartX to actualLineEndX
+    ctx.moveTo(lineStartX, y);
+    ctx.lineTo(actualLineEndX, y);
     ctx.stroke();
 
     // Reset dash for badge rendering
     ctx.setLineDash([]);
 
     if (labelPos === 'right') {
-      // Full label badge on the RIGHT side of the chart (flush against price scale)
-      const rx = w - bw - 4;
       ctx.fillStyle = color;
-      ctx.fillRect(rx, y - 9, bw, 19);
+      ctx.fillRect(badgeX, y - 9, bw, 19);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(fullBadgeText, rx + 8, y + 4.5);
+      ctx.fillText(fullBadgeText, badgeX + 8, y + 4.5);
     } else {
-      // Left-side badge (legacy)
+      // Left-side badge
       ctx.fillStyle = color;
-      ctx.fillRect(10, y - 18, bw, 18);
+      ctx.fillRect(badgeX, y - 18, bw, 18);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(fullBadgeText, 17, y - 5);
+      ctx.fillText(fullBadgeText, badgeX + 7, y - 5);
 
-      // Right price pill flush with the Y-axis
+      // Price pill at right end of the line
       const rightText = String(price);
       const rw = ctx.measureText(rightText).width + 14;
+      let rx = (lineScope === 'candles' && lineEndX < w - 16) ? lineEndX + 4 : (w - rw);
+      if (rx + rw > w - 4) rx = w - rw - 4;
       ctx.fillStyle = color;
-      ctx.fillRect(w - rw, y - 9, rw, 18);
+      ctx.fillRect(rx, y - 9, rw, 18);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(rightText, w - rw + 7, y + 4);
+      ctx.fillText(rightText, rx + 7, y + 4);
     }
   }
 
@@ -295,11 +342,22 @@
     const priceToY = getExactPriceToY();
     if (!priceToY) return;
 
-    // Determine line starting X coordinate (start of today's session vs full chart)
-    const startX = (displaySettings.lineScope === 'full') ? 0 : getExactDayStartX();
+    // Determine line horizontal boundaries (startX to endX)
+    let lineStartX = 0;
+    let lineEndX = overlay.width;
 
-    // If start of today is off-screen to the right, skip drawing to avoid drawing on history
-    if (startX >= overlay.width) return;
+    if (displaySettings.lineScope === 'candles' || displaySettings.lineScope === 'today') {
+      const range = getExactDayRange();
+      if (range) {
+        // If the day's session is completely off-screen, skip rendering levels
+        if (range.startX >= overlay.width || range.endX <= 0) return;
+
+        lineStartX = Math.max(0, range.startX);
+        if (displaySettings.lineScope === 'candles') {
+          lineEndX = Math.min(overlay.width, range.endX);
+        }
+      }
+    }
 
     // Directly plot the 3 Resistance and 3 Support levels
     const levels = [
@@ -311,10 +369,14 @@
       { price: oiData.s3, oi: oiData.topPuts?.[2]?.scoreFormatted  || oiData.topPuts?.[2]?.oi,  label: 'S3', color: '#66bb6a' }
     ];
 
-    if (oiData.excludedAtm) {
+    const atmLevelPrice = oiData.excludedAtm || oiData.atmStrike;
+    if (atmLevelPrice) {
+      const atmOiText = oiData.atmOi
+        ? (oiData.basis === 'change' && !oiData.atmOi.startsWith('Δ') ? `Δ ${oiData.atmOi}` : oiData.atmOi)
+        : '';
       levels.push({
-        price: oiData.excludedAtm,
-        oi: '',
+        price: atmLevelPrice,
+        oi: atmOiText,
         label: 'ATM REF',
         color: '#787b86',
         isAtm: true
@@ -325,7 +387,7 @@
       const price = Number(lvl.price);
       if (price && !isNaN(price)) {
         const y = priceToY(price);
-        drawLevel(y, price, lvl.label, lvl.oi, lvl.color, overlay.width, overlay.height, !!lvl.isAtm, startX);
+        drawLevel(y, price, lvl.label, lvl.oi, lvl.color, overlay.width, overlay.height, !!lvl.isAtm, lineStartX, lineEndX);
       }
     }
   }

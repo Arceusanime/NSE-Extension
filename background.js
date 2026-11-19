@@ -16,12 +16,14 @@ const DEFAULT_SETTINGS = {
   dataBasis: 'total',          // 'total' (Total OI) or 'change' (OI Change)
   strikesEachSide: 5,          // STRIKES_EACH_SIDE = 5
   topN: 3,                     // TOP_N = 3
-  refPriceSource: 'prev_open', // 'prev_open', 'today_open', 'custom', 'spot'
+  refPriceSource: 'prev_open', // 'prev_open', 'pre_open', 'today_open', 'custom', 'spot'
   customRefPrice: null,        // e.g. 1336
   excludeAtm: true,            // Exclude the rounded ATM strike candle
   lineStyle: 'solid',          // 'solid' | 'dashed'
   labelPosition: 'right',      // 'right' | 'left'
-  lineScope: 'today'           // 'today' | 'full'
+  lineScope: 'candles',        // 'candles' (Session Candles Only) | 'today' | 'full'
+  overlayScope: 'tab',         // 'tab' (This Tab Only) | 'all' (All Tabs)
+  showOnChartToggle: true      // Floating on-chart toggle button [● OI]
 };
 
 // In-memory cache for raw option chain data to make settings changes instant
@@ -78,7 +80,103 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (msg.type === 'CHECK_UPDATES') {
+    checkForExtensionUpdates()
+      .then((res) => sendResponse(res))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (msg.type === 'RELOAD_EXTENSION') {
+    chrome.runtime.reload();
+    sendResponse({ success: true });
+    return true;
+  }
 });
+
+// GitHub-Synced Update Checker
+const GITHUB_REPO_OWNER = 'Arceusanime';
+const GITHUB_REPO_NAME = 'NSE-Extension';
+const GITHUB_RAW_URLS = [
+  `https://raw.githubusercontent.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/master/manifest.json`,
+  `https://raw.githubusercontent.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/main/manifest.json`
+];
+
+// Semantic Version Comparator
+function compareVersions(v1, v2) {
+  const p1 = String(v1 || '0').split('.').map((n) => parseInt(n, 10) || 0);
+  const p2 = String(v2 || '0').split('.').map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(p1.length, p2.length);
+  for (let i = 0; i < len; i++) {
+    const num1 = p1[i] || 0;
+    const num2 = p2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+}
+
+async function checkForExtensionUpdates() {
+  const localVersion = chrome.runtime.getManifest().version;
+  let remoteData = null;
+
+  for (const url of GITHUB_RAW_URLS) {
+    try {
+      const resp = await fetch(`${url}?_t=${Date.now()}`, { cache: 'no-cache' });
+      if (resp.ok) {
+        remoteData = await resp.json();
+        break;
+      }
+    } catch (e) {
+      // Try next candidate URL
+    }
+  }
+
+  if (!remoteData || !remoteData.version) {
+    return { success: false, error: 'Could not fetch remote version from GitHub.' };
+  }
+
+  const remoteVersion = remoteData.version;
+  const hasUpdate = compareVersions(remoteVersion, localVersion) > 0;
+
+  const updateInfo = {
+    hasUpdate,
+    currentVersion: localVersion,
+    remoteVersion,
+    updateNotes: remoteData.updateNotes || `Version ${remoteVersion} is now available on GitHub.`,
+    lastChecked: Date.now()
+  };
+
+  await chrome.storage.local.set({ updateInfo });
+
+  if (hasUpdate) {
+    chrome.action.setBadgeText({ text: 'NEW' });
+    chrome.action.setBadgeBackgroundColor({ color: '#2563eb' });
+  } else {
+    chrome.action.setBadgeText({ text: '' });
+  }
+
+  return { success: true, updateInfo };
+}
+
+// Periodic check alarm (every 60 minutes) and on startup/installed
+try {
+  chrome.alarms?.create('CHECK_GITHUB_UPDATES', { periodInMinutes: 60 });
+  chrome.alarms?.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'CHECK_GITHUB_UPDATES') {
+      checkForExtensionUpdates().catch(() => {});
+    }
+  });
+
+  chrome.runtime.onInstalled?.addListener(() => {
+    checkForExtensionUpdates().catch(() => {});
+  });
+
+  chrome.runtime.onStartup?.addListener(() => {
+    checkForExtensionUpdates().catch(() => {});
+  });
+} catch (e) {}
 
 // Format numbers into Indian financial units (Lakhs, Crores, or Thousands)
 function formatOI(num) {
@@ -135,7 +233,7 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     excludeAtm = true,
     lineStyle = 'solid',
     labelPosition = 'right',
-    lineScope = 'today'
+    lineScope = 'candles'
   } = settings;
 
   const rows = records.data || [];
@@ -168,6 +266,22 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     } else if (priceInfo?.prevClose && !isNaN(Number(priceInfo.prevClose))) {
       refPrice = Number(priceInfo.prevClose);
       effectiveSource = 'prev_close_fallback';
+    } else {
+      effectiveSource = 'spot_fallback';
+    }
+  } else if (refPriceSource === 'pre_open') {
+    if (priceInfo?.preOpen && !isNaN(Number(priceInfo.preOpen)) && Number(priceInfo.preOpen) > 0) {
+      refPrice = Number(priceInfo.preOpen);
+      effectiveSource = 'pre_open';
+    } else if (priceInfo?.todayOpen && !isNaN(Number(priceInfo.todayOpen)) && Number(priceInfo.todayOpen) > 0) {
+      refPrice = Number(priceInfo.todayOpen);
+      effectiveSource = 'pre_open';
+    } else if (priceInfo?.chartOpenPrice && !isNaN(Number(priceInfo.chartOpenPrice)) && Number(priceInfo.chartOpenPrice) > 0) {
+      refPrice = Number(priceInfo.chartOpenPrice);
+      effectiveSource = 'chart_open';
+    } else if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen))) {
+      refPrice = Number(priceInfo.prevOpen);
+      effectiveSource = 'prev_open_fallback';
     } else {
       effectiveSource = 'spot_fallback';
     }
@@ -224,6 +338,15 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     }
   }
   const atmStrike = allStrikes[atmIndex];
+
+  // Calculate ATM strike's institutional OI score and Call/Put breakdown
+  const atmItem = strikeMap.get(atmStrike) || { ceOi: 0, peOi: 0, ceChgOi: 0, peChgOi: 0 };
+  const atmC = dataBasis === 'change' ? atmItem.ceChgOi : atmItem.ceOi;
+  const atmP = dataBasis === 'change' ? atmItem.peChgOi : atmItem.peOi;
+  const atmScore = scoreOf(atmC, atmP, rankMode, false, dataBasis);
+  const atmScoreFormatted = formatOI(atmScore);
+  const atmCeFormatted = formatOI(atmC);
+  const atmPeFormatted = formatOI(atmP);
 
   // Window: ATM +/- strikesEachSide
   const startIdx = Math.max(0, atmIndex - strikesEachSide);
@@ -323,10 +446,15 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     spot,
     refPrice,
     refPriceSource: effectiveSource,
+    preOpen: priceInfo?.preOpen || priceInfo?.todayOpen || null,
     prevOpen: priceInfo?.prevOpen || null,
     todayOpen: priceInfo?.todayOpen || null,
     prevClose: priceInfo?.prevClose || null,
     atmStrike,
+    atmOi: atmScoreFormatted,
+    atmScore: atmScore,
+    atmCeOi: atmCeFormatted,
+    atmPeOi: atmPeFormatted,
     excludedAtm: (excludeAtm !== false) ? atmStrike : null,
     excludeAtm: excludeAtm !== false,
     expiry,
@@ -411,7 +539,7 @@ async function queryDomain(domain, symbol) {
 
 async function getSymbolPriceInfo(domain, symbol) {
   const isIndex = INDICES.has(symbol);
-  const info = { todayOpen: null, prevOpen: null, prevClose: null };
+  const info = { todayOpen: null, prevOpen: null, prevClose: null, preOpen: null };
 
   try {
     if (isIndex) {
@@ -426,8 +554,20 @@ async function getSymbolPriceInfo(domain, symbol) {
         if (match) {
           info.todayOpen = Number(match.open) || null;
           info.prevClose = Number(match.previousClose) || null;
+          // In NSE indices, open is populated from the pre-market auction (09:08 AM onwards)
+          info.preOpen = Number(match.open) || null;
         }
       } catch (e) {}
+
+      // If pre-open not yet populated in allIndices, check pre-open market endpoint
+      if (!info.preOpen) {
+        try {
+          const preData = await fetchJson(domain, `/api/market-data-pre-open?key=${encodeURIComponent(symbol)}`);
+          if (preData?.total?.finalPrice) {
+            info.preOpen = Number(preData.total.finalPrice);
+          }
+        } catch (e) {}
+      }
 
       try {
         const hist = await fetchJson(domain, `/api/historical/indicesHistory?indexType=${encodeURIComponent(idxName)}`);
@@ -442,7 +582,24 @@ async function getSymbolPriceInfo(domain, symbol) {
         const quote = await fetchJson(domain, `/api/quote-equity?symbol=${sym}`);
         info.todayOpen = Number(quote?.priceInfo?.open) || null;
         info.prevClose = Number(quote?.priceInfo?.previousClose) || null;
+        if (quote?.preOpenMarket?.finalPrice && Number(quote.preOpenMarket.finalPrice) > 0) {
+          info.preOpen = Number(quote.preOpenMarket.finalPrice);
+        } else if (info.todayOpen) {
+          info.preOpen = info.todayOpen;
+        }
       } catch (e) {}
+
+      if (!info.preOpen) {
+        try {
+          const preOpenRes = await fetchJson(domain, `/api/market-data-pre-open?key=FO`);
+          const matchItem = (preOpenRes?.data || []).find(
+            (d) => d.metadata?.symbol?.toUpperCase() === symbol.toUpperCase()
+          );
+          if (matchItem?.metadata?.finalPrice) {
+            info.preOpen = Number(matchItem.metadata.finalPrice);
+          }
+        } catch (e) {}
+      }
 
       try {
         const hist = await fetchJson(domain, `/api/historical/cm/equity?symbol=${sym}&series=[%22EQ%22]`);

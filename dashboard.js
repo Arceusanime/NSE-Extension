@@ -491,3 +491,30 @@ chrome.storage.local.get(['customWatchlist', 'scannerCache', 'scannerLastTime', 
     startCarouselAutoRotate();
   }
 });
+
+// GitHub Update Management in Dashboard
+const dashLocalVer = chrome.runtime.getManifest().version;
+const dashVerEl = document.getElementById('dashVersionBadge');
+if (dashVerEl) {
+  dashVerEl.textContent = `v${dashLocalVer}`;
+}
+
+chrome.storage.local.get(['updateInfo'], (res) => {
+  if (res.updateInfo?.hasUpdate) {
+    const banner = document.getElementById('dashUpdateBanner');
+    if (banner) {
+      banner.style.display = 'flex';
+      const remEl = document.getElementById('dashRemoteVer');
+      if (remEl) remEl.textContent = `v${res.updateInfo.remoteVersion}`;
+    }
+  }
+});
+
+document.getElementById('dashDismissBannerBtn')?.addEventListener('click', () => {
+  const banner = document.getElementById('dashUpdateBanner');
+  if (banner) banner.style.display = 'none';
+});
+
+document.getElementById('dashReloadBtn')?.addEventListener('click', () => {
+  chrome.runtime.reload();
+});

@@ -2,20 +2,156 @@
 
 let currentSymbol = null;
 let isFetching = false;
-let overlayVisible = true;
+let overlayVisible = false; // DEFAULT: OFF on all tabs until explicitly enabled
+let lastOiData = null;
+let showOnChartToggle = true;
 
-chrome.storage.local.get(['overlayVisible'], (res) => {
-  overlayVisible = res.overlayVisible !== false;
+// Initialize per-tab overlay visibility independently from sessionStorage
+try {
+  const saved = sessionStorage.getItem('nse_oi_tab_visible');
+  if (saved !== null) {
+    overlayVisible = saved === 'true';
+  } else {
+    overlayVisible = false;
+    sessionStorage.setItem('nse_oi_tab_visible', 'false');
+  }
+} catch (e) {
+  overlayVisible = false;
+}
+
+// Initial broadcast to content.js
+window.postMessage({ type: 'OI_VISIBILITY', visible: overlayVisible }, '*');
+
+// Fetch initial settings for showOnChartToggle
+chrome.storage.local.get(['oiSettings'], (res) => {
+  if (res.oiSettings?.showOnChartToggle !== undefined) {
+    showOnChartToggle = res.oiSettings.showOnChartToggle !== false;
+  }
+  createOrUpdateOnChartPill(overlayVisible);
+});
+
+// Update visibility scoped strictly to this specific tab
+function setTabVisibility(nextVisible) {
+  overlayVisible = !!nextVisible;
+  try {
+    sessionStorage.setItem('nse_oi_tab_visible', String(overlayVisible));
+  } catch (e) {}
   window.postMessage({ type: 'OI_VISIBILITY', visible: overlayVisible }, '*');
+  createOrUpdateOnChartPill(overlayVisible);
+}
+
+function toggleTabVisibility() {
+  setTabVisibility(!overlayVisible);
+  return overlayVisible;
+}
+
+// On-chart floating toggle pill for one-click tab control directly on TradingView
+function createOrUpdateOnChartPill(visible) {
+  if (!showOnChartToggle) {
+    const existing = document.getElementById('nse-oi-tab-toggle');
+    if (existing) existing.remove();
+    return;
+  }
+  if (!document.body) {
+    window.addEventListener('DOMContentLoaded', () => createOrUpdateOnChartPill(visible), { once: true });
+    return;
+  }
+
+  let pill = document.getElementById('nse-oi-tab-toggle');
+  if (!pill) {
+    pill = document.createElement('div');
+    pill.id = 'nse-oi-tab-toggle';
+    pill.style.cssText = `
+      position: fixed;
+      bottom: 34px;
+      left: 62px;
+      z-index: 99998;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      background: rgba(19, 23, 34, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #d1d4dc;
+      font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      transition: all 0.18s ease;
+    `;
+    pill.addEventListener('mouseenter', () => {
+      pill.style.borderColor = 'rgba(255, 255, 255, 0.28)';
+      pill.style.transform = 'translateY(-1px)';
+    });
+    pill.addEventListener('mouseleave', () => {
+      pill.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+      pill.style.transform = 'translateY(0)';
+    });
+    pill.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleTabVisibility();
+    });
+    document.body.appendChild(pill);
+  }
+
+  const dotColor = visible ? '#26a69a' : '#787b86';
+  const labelText = visible ? 'OI ON' : 'OI OFF';
+  pill.title = visible
+    ? 'NSE OI Overlay is ACTIVE on this tab (Click to hide)'
+    : 'NSE OI Overlay is OFF on this tab (Click to enable)';
+  pill.style.opacity = visible ? '1' : '0.55';
+  pill.innerHTML = `
+    <span style="width: 6px; height: 6px; border-radius: 50%; background: ${dotColor}; display: inline-block; box-shadow: ${visible ? '0 0 5px #26a69a' : 'none'};"></span>
+    <span>${labelText}</span>
+  `;
+}
+
+// Runtime message listener for tab-specific queries from popup
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'GET_TAB_OI_STATUS') {
+    sendResponse({
+      isTradingView: true,
+      symbol: currentSymbol,
+      visible: overlayVisible,
+      data: lastOiData
+    });
+    return true;
+  }
+  if (msg.type === 'TOGGLE_TAB_VISIBILITY') {
+    const next = toggleTabVisibility();
+    sendResponse({ success: true, visible: next });
+    return true;
+  }
+  if (msg.type === 'SET_TAB_VISIBILITY') {
+    setTabVisibility(msg.visible === true);
+    sendResponse({ success: true, visible: overlayVisible });
+    return true;
+  }
+  if (msg.type === 'REFRESH_TAB_OI') {
+    currentSymbol = null;
+    watchChartTicker();
+    sendResponse({ success: true });
+    return true;
+  }
 });
 
 chrome.storage.onChanged.addListener((changes) => {
-  if (changes.overlayVisible) {
-    overlayVisible = changes.overlayVisible.newValue;
-    window.postMessage({ type: 'OI_VISIBILITY', visible: overlayVisible }, '*');
+  if (changes.globalOverlayVisible) {
+    setTabVisibility(changes.globalOverlayVisible.newValue === true);
   }
   if (changes.oiSettings) {
     window.postMessage({ type: 'OI_SETTINGS', settings: changes.oiSettings.newValue }, '*');
+    if (changes.oiSettings.newValue?.showOnChartToggle !== undefined) {
+      showOnChartToggle = changes.oiSettings.newValue.showOnChartToggle !== false;
+      createOrUpdateOnChartPill(overlayVisible);
+    }
   }
   if (changes.manualRefresh || changes.oiSettings) {
     currentSymbol = null;
@@ -121,7 +257,9 @@ function watchChartTicker() {
   chrome.runtime.sendMessage({ type: 'FETCH_OI', symbol: ticker, chartOpenPrice }, (res) => {
     isFetching = false;
     if (res?.success && res.data) {
+      lastOiData = res.data;
       window.postMessage({ type: 'OI_DATA', payload: res.data }, '*');
+      window.postMessage({ type: 'OI_VISIBILITY', visible: overlayVisible }, '*');
     } else {
       window.postMessage({ type: 'OI_STATUS', text: `${res?.error || 'No NSE OI data'}` }, '*');
     }
