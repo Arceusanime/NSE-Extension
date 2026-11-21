@@ -3,6 +3,7 @@
 let currentSymbol = null;
 let isFetching = false;
 let overlayVisible = false; // DEFAULT: OFF on all tabs until explicitly enabled
+let trendlinesVisible = false; // DEFAULT: OFF on all tabs until explicitly enabled
 let lastOiData = null;
 let showOnChartToggle = true;
 
@@ -19,8 +20,21 @@ try {
   overlayVisible = false;
 }
 
+try {
+  const savedTl = sessionStorage.getItem('nse_tl_tab_visible');
+  if (savedTl !== null) {
+    trendlinesVisible = savedTl === 'true';
+  } else {
+    trendlinesVisible = false;
+    sessionStorage.setItem('nse_tl_tab_visible', 'false');
+  }
+} catch (e) {
+  trendlinesVisible = false;
+}
+
 // Initial broadcast to content.js
 window.postMessage({ type: 'OI_VISIBILITY', visible: overlayVisible }, '*');
+window.postMessage({ type: 'TRENDLINES_VISIBILITY', visible: trendlinesVisible }, '*');
 
 // Fetch initial settings for showOnChartToggle
 chrome.storage.local.get(['oiSettings'], (res) => {
@@ -28,6 +42,7 @@ chrome.storage.local.get(['oiSettings'], (res) => {
     showOnChartToggle = res.oiSettings.showOnChartToggle !== false;
   }
   createOrUpdateOnChartPill(overlayVisible);
+  createOrUpdateTrendlinePill(trendlinesVisible);
 });
 
 // Update visibility scoped strictly to this specific tab
@@ -43,6 +58,20 @@ function setTabVisibility(nextVisible) {
 function toggleTabVisibility() {
   setTabVisibility(!overlayVisible);
   return overlayVisible;
+}
+
+function setTrendlinesVisibility(nextVisible) {
+  trendlinesVisible = !!nextVisible;
+  try {
+    sessionStorage.setItem('nse_tl_tab_visible', String(trendlinesVisible));
+  } catch (e) {}
+  window.postMessage({ type: 'TRENDLINES_VISIBILITY', visible: trendlinesVisible }, '*');
+  createOrUpdateTrendlinePill(trendlinesVisible);
+}
+
+function toggleTrendlinesVisibility() {
+  setTrendlinesVisibility(!trendlinesVisible);
+  return trendlinesVisible;
 }
 
 // On-chart floating toggle pill for one-click tab control directly on TradingView
@@ -113,6 +142,75 @@ function createOrUpdateOnChartPill(visible) {
   `;
 }
 
+// On-chart floating toggle pill for Auto-Trendlines & Patterns
+function createOrUpdateTrendlinePill(visible) {
+  if (!showOnChartToggle) {
+    const existing = document.getElementById('nse-tl-tab-toggle');
+    if (existing) existing.remove();
+    return;
+  }
+  if (!document.body) {
+    window.addEventListener('DOMContentLoaded', () => createOrUpdateTrendlinePill(visible), { once: true });
+    return;
+  }
+
+  let pill = document.getElementById('nse-tl-tab-toggle');
+  if (!pill) {
+    pill = document.createElement('div');
+    pill.id = 'nse-tl-tab-toggle';
+    pill.style.cssText = `
+      position: fixed;
+      bottom: 34px;
+      left: 136px;
+      z-index: 99998;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      background: rgba(19, 23, 34, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #d1d4dc;
+      font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      transition: all 0.18s ease;
+    `;
+    pill.addEventListener('mouseenter', () => {
+      pill.style.borderColor = 'rgba(255, 255, 255, 0.28)';
+      pill.style.transform = 'translateY(-1px)';
+    });
+    pill.addEventListener('mouseleave', () => {
+      pill.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+      pill.style.transform = 'translateY(0)';
+    });
+    pill.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleTrendlinesVisibility();
+    });
+    document.body.appendChild(pill);
+  }
+
+  const dotColor = visible ? '#ff7043' : '#787b86';
+  const labelText = visible ? '📐 TL ON' : '📐 TL OFF';
+  pill.title = visible
+    ? 'Auto Trendlines & Patterns are ACTIVE (Click to hide)'
+    : 'Auto Trendlines & Patterns are OFF (Click to calculate & plot)';
+  pill.style.opacity = visible ? '1' : '0.55';
+  pill.style.borderColor = visible ? 'rgba(255, 112, 67, 0.45)' : 'rgba(255, 255, 255, 0.12)';
+  pill.innerHTML = `
+    <span style="width: 6px; height: 6px; border-radius: 50%; background: ${dotColor}; display: inline-block; box-shadow: ${visible ? '0 0 5px #ff7043' : 'none'};"></span>
+    <span>${labelText}</span>
+  `;
+}
+
 // Runtime message listener for tab-specific queries from popup
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'GET_TAB_OI_STATUS') {
@@ -120,6 +218,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       isTradingView: true,
       symbol: currentSymbol,
       visible: overlayVisible,
+      trendlinesVisible: trendlinesVisible,
       data: lastOiData
     });
     return true;
@@ -132,6 +231,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'SET_TAB_VISIBILITY') {
     setTabVisibility(msg.visible === true);
     sendResponse({ success: true, visible: overlayVisible });
+    return true;
+  }
+  if (msg.type === 'TOGGLE_TRENDLINES') {
+    const next = toggleTrendlinesVisibility();
+    sendResponse({ success: true, visible: next });
+    return true;
+  }
+  if (msg.type === 'SET_TRENDLINES') {
+    setTrendlinesVisibility(msg.visible === true);
+    sendResponse({ success: true, visible: trendlinesVisible });
+    return true;
+  }
+  if (msg.type === 'RECALCULATE_TRENDLINES') {
+    window.postMessage({ type: 'RECALCULATE_TRENDLINES' }, '*');
+    sendResponse({ success: true });
     return true;
   }
   if (msg.type === 'REFRESH_TAB_OI') {
@@ -148,9 +262,11 @@ chrome.storage.onChanged.addListener((changes) => {
   }
   if (changes.oiSettings) {
     window.postMessage({ type: 'OI_SETTINGS', settings: changes.oiSettings.newValue }, '*');
+    window.postMessage({ type: 'TRENDLINE_SETTINGS', settings: changes.oiSettings.newValue }, '*');
     if (changes.oiSettings.newValue?.showOnChartToggle !== undefined) {
       showOnChartToggle = changes.oiSettings.newValue.showOnChartToggle !== false;
       createOrUpdateOnChartPill(overlayVisible);
+      createOrUpdateTrendlinePill(trendlinesVisible);
     }
   }
   if (changes.manualRefresh || changes.oiSettings) {

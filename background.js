@@ -23,7 +23,11 @@ const DEFAULT_SETTINGS = {
   labelPosition: 'right',      // 'right' | 'left'
   lineScope: 'candles',        // 'candles' (Session Candles Only) | 'today' | 'full'
   overlayScope: 'tab',         // 'tab' (This Tab Only) | 'all' (All Tabs)
-  showOnChartToggle: true      // Floating on-chart toggle button [● OI]
+  showOnChartToggle: true,     // Floating on-chart toggle button [● OI]
+  showTrendlines: false,       // Auto Trendlines ON/OFF
+  trendlineSensitivity: 'conservative', // 'conservative' (3+ touches) | 'responsive' (2+ touches)
+  showChannels: true,          // Channel & pattern shading
+  showConfluence: true         // OI S&R + Trendline intersection confluence
 };
 
 // In-memory cache for raw option chain data to make settings changes instant
@@ -254,21 +258,25 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     refPrice = Number(customRefPrice);
     effectiveSource = 'custom';
   } else if (refPriceSource === 'prev_open') {
+    let raw = null;
     if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen)) && Number(priceInfo.prevOpen) > 0) {
-      refPrice = Number(priceInfo.prevOpen);
+      raw = Number(priceInfo.prevOpen);
       effectiveSource = 'prev_open';
     } else if (priceInfo?.prevClose && !isNaN(Number(priceInfo.prevClose)) && Number(priceInfo.prevClose) > 0) {
-      refPrice = Number(priceInfo.prevClose);
+      raw = Number(priceInfo.prevClose);
       effectiveSource = 'prev_close_fallback';
     } else if (priceInfo?.todayOpen && !isNaN(Number(priceInfo.todayOpen)) && Number(priceInfo.todayOpen) > 0) {
-      refPrice = Number(priceInfo.todayOpen);
+      raw = Number(priceInfo.todayOpen);
       effectiveSource = 'today_open_fallback';
     } else if (priceInfo?.chartOpenPrice && !isNaN(Number(priceInfo.chartOpenPrice))) {
-      refPrice = Number(priceInfo.chartOpenPrice);
+      raw = Number(priceInfo.chartOpenPrice);
       effectiveSource = 'chart_open';
     } else {
+      raw = spot;
       effectiveSource = 'spot_fallback';
     }
+    // Yesterday's price: round to nearest 10s as requested
+    refPrice = Math.round(raw / 10) * 10;
   } else if (refPriceSource === 'pre_open') {
     if (priceInfo?.preOpen && !isNaN(Number(priceInfo.preOpen)) && Number(priceInfo.preOpen) > 0) {
       refPrice = Number(priceInfo.preOpen);
@@ -285,19 +293,24 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     } else {
       effectiveSource = 'spot_fallback';
     }
+    // Pre-market price remains accurate and exact (not rounded)
   } else if (refPriceSource === 'today_open') {
+    let raw = null;
     if (priceInfo?.todayOpen && !isNaN(Number(priceInfo.todayOpen))) {
-      refPrice = Number(priceInfo.todayOpen);
+      raw = Number(priceInfo.todayOpen);
       effectiveSource = 'today_open';
     } else if (priceInfo?.chartOpenPrice && !isNaN(Number(priceInfo.chartOpenPrice))) {
-      refPrice = Number(priceInfo.chartOpenPrice);
+      raw = Number(priceInfo.chartOpenPrice);
       effectiveSource = 'chart_open';
     } else if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen))) {
-      refPrice = Number(priceInfo.prevOpen);
+      raw = Number(priceInfo.prevOpen);
       effectiveSource = 'prev_open_fallback';
     } else {
+      raw = spot;
       effectiveSource = 'spot_fallback';
     }
+    // Today's price: round to nearest 10s as requested
+    refPrice = Math.round(raw / 10) * 10;
   } else {
     // 'spot'
     refPrice = spot;

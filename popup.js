@@ -12,12 +12,32 @@ const DEFAULT_SETTINGS = {
   labelPosition: 'right',
   lineScope: 'candles',
   overlayScope: 'tab',
-  showOnChartToggle: true
+  showOnChartToggle: true,
+  trendlineSensitivity: 'conservative',
+  showChannels: true,
+  showConfluence: true
 };
 
 let currentPineLine = '';
 let activeTradingViewTabId = null;
 let currentTabVisible = false; // Default: OFF (only enabled on selected tab)
+let currentTrendlinesVisible = false;
+
+function updateTrendlineHeaderBtn(active) {
+  const btn = document.getElementById('toggleTrendlineHeaderBtn');
+  if (!btn) return;
+  if (active) {
+    btn.classList.add('active');
+    btn.style.borderColor = 'rgba(255, 112, 67, 0.6)';
+    btn.style.background = 'rgba(255, 112, 67, 0.15)';
+    btn.title = 'Auto-Trendlines ACTIVE on this tab (Click to hide)';
+  } else {
+    btn.classList.remove('active');
+    btn.style.borderColor = 'var(--border)';
+    btn.style.background = 'var(--bg-card)';
+    btn.title = 'Auto-Trendlines OFF (Click to calculate & plot)';
+  }
+}
 
 function formatOI(num) {
   if (num === null || num === undefined || isNaN(num)) return '0';
@@ -96,9 +116,12 @@ function render(d) {
     ? `<span class="atm-sub-oi">CE: ${d.atmCeOi || '--'} • PE: ${d.atmPeOi || '--'}</span>`
     : '<span class="atm-sub-oi">Anchor Center</span>';
 
-  const atmDisplayPrice = (d.refPrice && !isNaN(Number(d.refPrice)) && Number(d.refPrice) > 0)
-    ? d.refPrice
-    : (d.excludedAtm || d.atmStrike);
+  // Only for pre-market open, display the exact unrounded price.
+  // For other options (prev_open, today_open, spot), display the rounded strike (how it was earlier).
+  const isPreOpen = d.refPriceSource === 'pre_open';
+  const atmDisplayPrice = isPreOpen
+    ? (d.refPrice || d.excludedAtm || d.atmStrike)
+    : (d.excludedAtm || d.atmStrike || (d.refPrice ? Math.round(Number(d.refPrice) / 10) * 10 : '--'));
 
   const atmStripHtml = (atmDisplayPrice)
     ? `<div class="atm-strip">
@@ -185,6 +208,9 @@ chrome.storage.local.get(['oiSettings', 'themeMode', 'accentColor', 'activeOiDat
   document.getElementById('lineScopeSelect').value = settings.lineScope || 'candles';
   document.getElementById('overlayScopeSelect').value = settings.overlayScope || 'tab';
   document.getElementById('showOnChartToggleCheck').checked = settings.showOnChartToggle !== false;
+  document.getElementById('tlSensitivitySelect').value = settings.trendlineSensitivity || 'conservative';
+  document.getElementById('tlChannelsCheck').checked = settings.showChannels !== false;
+  document.getElementById('tlConfluenceCheck').checked = settings.showConfluence !== false;
 
   const refSrc = settings.refPriceSource || 'prev_open';
   document.getElementById('refPriceSelect').value = refSrc;
@@ -202,6 +228,8 @@ chrome.storage.local.get(['oiSettings', 'themeMode', 'accentColor', 'activeOiDat
           activeTradingViewTabId = tab.id;
           currentTabVisible = tabRes.visible === true;
           updateEyeIcon(currentTabVisible);
+          currentTrendlinesVisible = tabRes.trendlinesVisible === true;
+          updateTrendlineHeaderBtn(currentTrendlinesVisible);
 
           if (tabRes.data) {
             render(tabRes.data);
@@ -211,12 +239,14 @@ chrome.storage.local.get(['oiSettings', 'themeMode', 'accentColor', 'activeOiDat
 
         // Tab is not yet enabled or not TradingView: default to OFF
         updateEyeIcon(false);
+        updateTrendlineHeaderBtn(false);
         if (res.activeOiData) {
           render(res.activeOiData);
         }
       });
     } else {
       updateEyeIcon(false);
+      updateTrendlineHeaderBtn(false);
       if (res.activeOiData) render(res.activeOiData);
     }
   });
@@ -266,7 +296,10 @@ function updateSettings() {
     labelPosition: document.getElementById('labelPosSelect').value,
     lineScope: document.getElementById('lineScopeSelect').value,
     overlayScope: document.getElementById('overlayScopeSelect').value,
-    showOnChartToggle: document.getElementById('showOnChartToggleCheck').checked
+    showOnChartToggle: document.getElementById('showOnChartToggleCheck').checked,
+    trendlineSensitivity: document.getElementById('tlSensitivitySelect')?.value || 'conservative',
+    showChannels: document.getElementById('tlChannelsCheck')?.checked !== false,
+    showConfluence: document.getElementById('tlConfluenceCheck')?.checked !== false
   };
 
   chrome.storage.local.set({ oiSettings: newSettings }, () => {
@@ -285,6 +318,47 @@ document.getElementById('excludeAtmCheck').addEventListener('change', updateSett
 document.getElementById('lineStyleSelect').addEventListener('change', updateSettings);
 document.getElementById('labelPosSelect').addEventListener('change', updateSettings);
 document.getElementById('lineScopeSelect').addEventListener('change', updateSettings);
+document.getElementById('tlSensitivitySelect')?.addEventListener('change', updateSettings);
+document.getElementById('tlChannelsCheck')?.addEventListener('change', updateSettings);
+document.getElementById('tlConfluenceCheck')?.addEventListener('change', updateSettings);
+
+// Header button for toggling auto-trendlines
+document.getElementById('toggleTrendlineHeaderBtn')?.addEventListener('click', () => {
+  getActiveTab((tab) => {
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_TRENDLINES' }, (tabRes) => {
+        if (!chrome.runtime.lastError && tabRes) {
+          currentTrendlinesVisible = tabRes.visible === true;
+          updateTrendlineHeaderBtn(currentTrendlinesVisible);
+        }
+      });
+    }
+  });
+});
+
+// Button for on-demand recalculation of trendlines based on current chart view
+document.getElementById('recalcTrendlinesBtn')?.addEventListener('click', () => {
+  const btn = document.getElementById('recalcTrendlinesBtn');
+  getActiveTab((tab) => {
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'SET_TRENDLINES', visible: true }, () => {
+        chrome.tabs.sendMessage(tab.id, { type: 'RECALCULATE_TRENDLINES' }, () => {
+          currentTrendlinesVisible = true;
+          updateTrendlineHeaderBtn(true);
+          if (btn) {
+            const original = btn.innerText;
+            btn.innerText = '✓ Trendlines Plotted!';
+            btn.style.borderColor = 'var(--accent)';
+            setTimeout(() => {
+              btn.innerText = original;
+              btn.style.borderColor = '';
+            }, 1400);
+          }
+        });
+      });
+    }
+  });
+});
 document.getElementById('overlayScopeSelect').addEventListener('change', () => {
   updateSettings();
   updateEyeIcon(currentTabVisible);
