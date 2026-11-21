@@ -254,18 +254,18 @@ function calculateOiLevels(symbol, records, expiry, settings, priceInfo = {}) {
     refPrice = Number(customRefPrice);
     effectiveSource = 'custom';
   } else if (refPriceSource === 'prev_open') {
-    if (priceInfo?.chartOpenPrice && !isNaN(Number(priceInfo.chartOpenPrice))) {
-      refPrice = Number(priceInfo.chartOpenPrice);
-      effectiveSource = 'chart_open';
-    } else if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen))) {
+    if (priceInfo?.prevOpen && !isNaN(Number(priceInfo.prevOpen)) && Number(priceInfo.prevOpen) > 0) {
       refPrice = Number(priceInfo.prevOpen);
       effectiveSource = 'prev_open';
-    } else if (priceInfo?.todayOpen && !isNaN(Number(priceInfo.todayOpen))) {
-      refPrice = Number(priceInfo.todayOpen);
-      effectiveSource = 'today_open_fallback';
-    } else if (priceInfo?.prevClose && !isNaN(Number(priceInfo.prevClose))) {
+    } else if (priceInfo?.prevClose && !isNaN(Number(priceInfo.prevClose)) && Number(priceInfo.prevClose) > 0) {
       refPrice = Number(priceInfo.prevClose);
       effectiveSource = 'prev_close_fallback';
+    } else if (priceInfo?.todayOpen && !isNaN(Number(priceInfo.todayOpen)) && Number(priceInfo.todayOpen) > 0) {
+      refPrice = Number(priceInfo.todayOpen);
+      effectiveSource = 'today_open_fallback';
+    } else if (priceInfo?.chartOpenPrice && !isNaN(Number(priceInfo.chartOpenPrice))) {
+      refPrice = Number(priceInfo.chartOpenPrice);
+      effectiveSource = 'chart_open';
     } else {
       effectiveSource = 'spot_fallback';
     }

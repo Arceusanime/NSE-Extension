@@ -96,11 +96,15 @@ function render(d) {
     ? `<span class="atm-sub-oi">CE: ${d.atmCeOi || '--'} • PE: ${d.atmPeOi || '--'}</span>`
     : '<span class="atm-sub-oi">Anchor Center</span>';
 
-  const atmStripHtml = (d.atmStrike || d.excludedAtm)
+  const atmDisplayPrice = (d.refPrice && !isNaN(Number(d.refPrice)) && Number(d.refPrice) > 0)
+    ? d.refPrice
+    : (d.excludedAtm || d.atmStrike);
+
+  const atmStripHtml = (atmDisplayPrice)
     ? `<div class="atm-strip">
          <div class="atm-strip-left">
            <span class="atm-tag">ATM REF</span>
-           <span class="atm-val">${d.excludedAtm || d.atmStrike}</span>
+           <span class="atm-val">${atmDisplayPrice}</span>
            ${atmOiBadge}
          </div>
          <div class="atm-strip-right">

@@ -369,8 +369,12 @@
       { price: oiData.s3, oi: oiData.topPuts?.[2]?.scoreFormatted  || oiData.topPuts?.[2]?.oi,  label: 'S3', color: '#66bb6a' }
     ];
 
-    const atmLevelPrice = oiData.excludedAtm || oiData.atmStrike;
-    if (atmLevelPrice) {
+    // Use the active reference anchor price (e.g. pre-market open 25368) directly as the ATM REF level
+    const atmLevelPrice = (oiData.refPrice && !isNaN(Number(oiData.refPrice)) && Number(oiData.refPrice) > 0)
+      ? Number(oiData.refPrice)
+      : Number(oiData.excludedAtm || oiData.atmStrike);
+
+    if (atmLevelPrice && !isNaN(atmLevelPrice)) {
       const atmOiText = oiData.atmOi
         ? (oiData.basis === 'change' && !oiData.atmOi.startsWith('Δ') ? `Δ ${oiData.atmOi}` : oiData.atmOi)
         : '';
