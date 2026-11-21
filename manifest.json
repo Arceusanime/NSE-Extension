@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NSE OI Auto S&R Overlay",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Automatically calculates & overlays 3 Resistance and 3 Support levels on TradingView using real NSE Option Chain OI logic.",
   "permissions": [
     "storage",
